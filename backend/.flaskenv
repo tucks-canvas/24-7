@@ -1,0 +1,21 @@
+# Flask Configuration
+FLASK_APP=app:create_app()
+FLASK_DEBUG=True
+FLASK_RUN_HOST=0.0.0.0
+FLASK_RUN_PORT=8080
+
+SECRET_KEY=dc5fe83224bf5108374c546d341ca793a756d94389f3ed5c69cb9038a512a79e
+
+# Database Configuration
+DATABASE_URL=postgresql://24-7_user:247project@localhost:5432/24-7
+
+# JWT Configuration
+JWT_SECRET_KEY=your_jwt_signing_key_here
+JWT_ACCESS_TOKEN_EXPIRES=3600  # 1 hour in seconds
+
+# File Uploads
+UPLOAD_FOLDER=./uploads
+MAX_CONTENT_LENGTH=16 * 1024 * 1024  # 16MB
+
+# CORS (For React Native Development)
+REACT_NATIVE_APP_URL=http://localhost:19006
