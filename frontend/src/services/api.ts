@@ -3,7 +3,7 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = 'http://172.16.116.25:5000/api/v1';
+const API_BASE_URL = 'http://10.10.14.136:5000/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
