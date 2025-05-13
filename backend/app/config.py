@@ -3,7 +3,7 @@ from datetime import timedelta
 from os.path import join, dirname
 from dotenv import load_dotenv
 
-dotenv_path = join(dirname(__file__), '.flaskenv')
+dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
 
 class Config(object):
@@ -19,3 +19,6 @@ class Config(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'your-jwt-secret-key')
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
+
+    WTF_CSRF_ENABLED = False  # Disable completely
+    WTF_CSRF_CHECK_DEFAULT = False

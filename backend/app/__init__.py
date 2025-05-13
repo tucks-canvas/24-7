@@ -1,24 +1,36 @@
+
+import jwt
 from flask import Flask
+from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from .config import Config
+from flask_wtf.csrf import CSRFProtect
+from flask_jwt_extended import JWTManager
+from flask_cors import CORS
+from app.config import Config
 
-# Initialize extensions
-db = SQLAlchemy()
-migrate = Migrate()
+# Initialize Flask application
+app = Flask(__name__)
 
-def create_app(config_class=Config):
-    app = Flask(__name__)
-    app.config.from_object(config_class)
-    
-    # Initialize extensions
-    db.init_app(app)
-    migrate.init_app(app, db)
-    
-    return app
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# Create app instance
-app = create_app()
+app.config.from_object(Config)
 
-# Import models AFTER app creation
-from app.models import User
+# Initialize SQLAlchemy
+db = SQLAlchemy(app)
+
+# Instantiate Flask-Migrate library here
+migrate = Migrate(app, db)
+
+# Instantiate CSRF-Protect library here
+csrf = CSRFProtect(app)
+csrf.exempt('api.*') 
+
+#Initialize JWT
+jwt = JWTManager(app)
+
+# Initialize LoginManager
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+
+from app import views

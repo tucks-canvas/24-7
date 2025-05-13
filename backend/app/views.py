@@ -10,18 +10,25 @@ This file creates your application.
 import os
 import jwt
 import secrets
+
 from datetime import datetime, timedelta
 from functools import wraps
 from datetime import datetime
 from app import app, db, login_manager
+
+
 from flask import render_template, request, jsonify, send_file, session, send_from_directory, url_for, redirect, g
 from flask_login import login_user, logout_user, current_user, login_required
+
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
+
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
-from app.forms import LoginForm, RegistrationForm, NewPostForm
-from app.models import User, Post, Follow, Like
+
+from app.forms import LoginForm, RegistrationForm
+from app.models import User
+
 from flask_wtf.csrf import generate_csrf
 
 
@@ -33,7 +40,7 @@ from flask_wtf.csrf import generate_csrf
 def requires_auth(f):
   @wraps(f)
   def decorated(*args, **kwargs):
-    auth = request.headers.get('Authorization', None) # or request.cookies.get('token', None)
+    auth = request.headers.get('Authorization', None) 
 
     if not auth:
       return jsonify({'code': 'authorization_header_missing', 'description': 'Authorization header is expected'}), 401
@@ -62,89 +69,110 @@ def requires_auth(f):
   return decorated
 
 
-# 
+# Define the default route
 @app.route('/')
 def index():
     return jsonify(message="This is the beginning of our API")
 
 
-#
 @app.route('/api/v1/register', methods=['POST'])
 def register():
+    print("\n=== NEW REGISTRATION ATTEMPT ===")
+    print("Headers:", request.headers)
+    print("Raw data:", request.data.decode('utf-8'))  # Decode bytes to string
     
-    """Accepts user information and saves it to the database"""
-    registrationForm = RegistrationForm()
+    try:
+        # Manually handle JSON parsing to get better error messages
+        if not request.data:
+            return jsonify({"error": "No data received"}), 400
+            
+        try:
+            data = request.get_json(force=True)  # force=True to ignore Content-Type
+        except Exception as e:
+            print("JSON Parse Error:", str(e))
+            return jsonify({
+                "error": "Invalid JSON format",
+                "details": str(e),
+                "received": request.data.decode('utf-8')
+            }), 400
 
-    if registrationForm.validate_on_submit():
-        # Extract form data
-        username = registrationForm.username.data
-        password = registrationForm.password.data
-        firstname = registrationForm.firstname.data
-        lastname = registrationForm.lastname.data
-        email = registrationForm.email.data
-        location = registrationForm.location.data
-        biography = registrationForm.biography.data
-        photo = registrationForm.profile_photo.data
+        print("Parsed JSON:", data)
         
-        if photo:
-            # Save the profile photo to the uploads folder
-            filename = secure_filename(photo.filename)
-            photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        else:
-            filename = ''  # Set a default value if no photo is uploaded
+        # Simplified validation - bypass WTForms for API
+        required_fields = ['username', 'password', 'email']
+        missing = [field for field in required_fields if field not in data]
+        if missing:
+            return jsonify({
+                "error": "Missing required fields",
+                "missing": missing
+            }), 400
+            
+        # Check for existing user
+        if User.query.filter_by(username=data['username']).first():
+            return jsonify({"error": "Username already exists"}), 400
+            
+        if User.query.filter_by(email=data['email']).first():
+            return jsonify({"error": "Email already exists"}), 400
         
-        joined_on = datetime.utcnow()
+        # Create user directly from JSON data
+        user = User(
+            username=data['username'],
+            password=data['password'],  # Let model handle hashing
+            email=data['email']
+        )
         
-        # Create a new User object with the profile photo path
-        user = User(username, password, firstname, lastname, email, location, biography, filename, joined_on)
-
-        # Add the user to the session and commit
         db.session.add(user)
         db.session.commit()
-
+        
         return jsonify({
-            "message": "User successfully registered.",
-            "username": username,
-            "password": password,
-            "firstname": firstname,
-            "lastname": lastname,
-            "email": email,
-            "location": location,
-            "profile_photo": filename,  # Send the path instead of the FileStorage object
-            "joined_on": joined_on
+            "message": "User registered successfully",
+            "username": user.username
         }), 201
+        
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        print("Database Error:", str(e))
+        return jsonify({
+            "error": "Database operation failed",
+            "details": str(e)
+        }), 500
+        
+    except Exception as e:
+        print("Unexpected Error:", str(e))
+        return jsonify({
+            "error": "Registration failed",
+            "details": str(e)
+        }), 400
 
-    errors = form_errors(registrationForm)
-    return jsonify(errors=errors), 400
-
-
-# 
+# Define the login route
 @app.route('/api/v1/auth/login', methods=['POST'])
 def login():
-    
-    """Accepts login credentials as username and password"""
     loginForm = LoginForm()
-
+    
     if loginForm.validate_on_submit():
-        username = loginForm.username.data
+        email = loginForm.email.data
         password = loginForm.password.data
         
-        user = db.session.execute(db.select(User).filter_by(username=username)).scalar()
+        user = User.query.filter_by(email=email).first()
         
-        if user is not None and check_password_hash(user.password, password):
+        if user and check_password_hash(user.password, password):
             login_user(user)
             jwt_token = generate_token(user.id)
-        
+            
             return jsonify({
                 "message": "User successfully logged in.",
-                "token": jwt_token
+                "token": jwt_token,
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email
+                }
             }), 200
         
-        return jsonify(errors=["Invalid username or password"])
+        return jsonify({"error": "Invalid email or password"}), 401
     
     errors = form_errors(loginForm)
-    return jsonify(errors=errors), 400
-
+    return jsonify({"error": "Validation failed", "details": errors}), 400
 
 # Define the logout route
 @app.route('/api/v1/auth/logout', methods=['POST'])
@@ -166,7 +194,7 @@ def logout():
 # Functions for post creation and retrieval.
 ##
 
-# 
+# Define the login manager route
 @login_manager.user_loader
 def load_user(user_id):
     # Query the database for the user by user ID

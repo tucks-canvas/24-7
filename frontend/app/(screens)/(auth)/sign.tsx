@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
 
 // Import Supported Contents
-import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Alert, ActivityIndicator } from 'react-native';
 
 // Import View and Storage
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -13,10 +13,33 @@ import { icons, images } from '../../../constants';
 import colors from '../../../constants/colors';
 import { registerUser, loginUser } from '../../../src/services/api';
 
+// Form Error
+type FormErrors = {
+  signup: {
+    username?: string;
+    email?: string;
+    password?: string;
+  };
+  login: {
+    email?: string;
+    password?: string;
+  };
+};
+
 const Sign = () => {
   const router = useRouter();
-  
-  const [activeView, setActiveView] = useState('signup');
+
+  const [loading, setLoading] = useState(false);
+  const [activeView, setActiveView] = useState<'login' | 'signup'>('signup');
+
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+
+  // Initialize state
+  const [errors, setErrors] = useState<FormErrors>({
+    signup: {},
+    login: {}
+  });
 
   const [signupData, setSignupData] = useState({
     username: '',
@@ -28,88 +51,112 @@ const Sign = () => {
     email: '',
     password: '',
   });
-  
-  const [showSignupPassword, setShowSignupPassword] = useState(false);
-  const [showLoginPassword, setShowLoginPassword] = useState(false);
-
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({
-    signup: {},
-    login: {}
-  });
 
   const toggleView = (view) => {
     setActiveView(view);
   };
-
-  // Enhanced validation functions
-  const validateSignup = () => {
-    const newErrors = {};
-    
-    if (!signupData.username) newErrors.username = 'Username is required';
-    if (!signupData.email) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(signupData.email)) newErrors.email = 'Email is invalid';
-    if (!signupData.password) newErrors.password = 'Password is required';
-    else if (signupData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
-    
-    setErrors(prev => ({...prev, signup: newErrors}));
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const validateLogin = () => {
-    const newErrors = {};
-    
-    if (!loginData.email) newErrors.email = 'Email is required';
-    if (!loginData.password) newErrors.password = 'Password is required';
-    
-    setErrors(prev => ({...prev, login: newErrors}));
-    return Object.keys(newErrors).length === 0;
-  };
   
-  const handleSignupInputChange = (name, value) => {
+  const handleSignupInputChange = (name: keyof typeof signupData, value: string) => {
     setSignupData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleLoginInputChange = (name, value) => {
+  const handleLoginInputChange = (name: keyof typeof loginData, value: string) => {
     setLoginData(prev => ({ ...prev, [name]: value }));
   };
 
+
   const handleSignup = async () => {
-    if (!validateSignup()) return;
-    
     setLoading(true);
+
+    const signupErrors: FormErrors = { ...errors, signup: {} };
+
+    // Validation
+    if (!signupData.username) 
+      signupErrors.signup.username = 'Username is required';
+
+    if (!signupData.email) 
+      signupErrors.signup.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(signupData.email)) 
+      signupErrors.signup.email = 'Email is invalid';
+
+    if (!signupData.password) 
+      signupErrors.signup.password = 'Password is required';
+    else if (signupData.password.length < 6) 
+      signupErrors.signup.password = 'Password must be at least 6 characters';
+
+    setErrors(signupErrors);
+    
     try {
-      await registerUser(signupData);
-      const loginResponse = await loginUser({
+      // Validate required fields
+      if (!signupData.username || !signupData.email || !signupData.password) {
+        Alert.alert('Error', 'All fields are required');
+        return;
+      }
+
+      const result = await registerUser({
+        username: signupData.username,
         email: signupData.email,
         password: signupData.password
       });
-      
-      if (loginResponse.token) {
-        router.replace('/home');
+
+      if (result.success) {
+        Alert.alert('Success', 'Account created successfully!');
+        setSignupData({ username: '', email: '', password: '' });
+        setActiveView('login');
+      } else {
+        Alert.alert('Error', result.error || 'Registration failed');
       }
     } catch (error) {
-      Alert.alert('Error', error.toString());
+      console.error('Signup error:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogin = async () => {
-    if (!validateLogin()) return;
-    
     setLoading(true);
+
+    const loginErrors: FormErrors = { ...errors, signup: {} };
+
+    if (!loginData.email) {
+      loginErrors.login.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(loginData.email)) {
+      loginErrors.login.email = 'Email is invalid';
+    }
+
+    if (!loginData.password) {
+      loginErrors.login.password = 'Password is required';
+    }
+
+    setErrors(loginErrors);
+    
     try {
-      const response = await loginUser(loginData);
-      if (response.token) {
+      if (!loginData.email || !loginData.password) {
+        Alert.alert('Error', 'Email and password are required');
+        return;
+      }
+
+      const result = await loginUser({
+        email: loginData.email,
+        password: loginData.password
+      });
+
+      if (result.success) {
+        Alert.alert('Success', 'Logged in successfully!');
+        setLoginData({ email: '', password: '' });
         router.replace('/home');
+      } else {
+        Alert.alert('Error', result.error || 'Login failed');
       }
     } catch (error) {
-      Alert.alert('Error', error.toString());
+      console.error('Login error:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <>
@@ -152,6 +199,8 @@ const Sign = () => {
                         placeholder="Placeholder text"
                         placeholderTextColor={colors.grey}  
                         autoCapitalize="none"
+                        value={signupData.username}
+                        onChangeText={(text) => handleSignupInputChange('username', text)}
                       />
 
                       <TouchableOpacity>
@@ -170,6 +219,8 @@ const Sign = () => {
                         placeholder="Placeholder text"
                         placeholderTextColor={colors.grey}  
                         autoCapitalize="none"
+                        value={signupData.email}
+                        onChangeText={(text) => handleSignupInputChange('email', text)}
                       />
 
                       <TouchableOpacity>
@@ -206,14 +257,20 @@ const Sign = () => {
                   </View>
 
                   {errors.signup.password && <Text style={styles.errortext}>{errors.signup.password}</Text>}
-                </View>
+
+                 </View>
 
                 <View style={styles.signbox}>
                   <TouchableOpacity 
-                    style={styles.signbutton}
+                    style={[styles.signbutton, loading && styles.disabledbutton]}
                     onPress={handleSignup}
+                    disabled={loading}
                   >
-                    <Text style={styles.signtext}>Sign up</Text>
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.signtext}>Sign up</Text>
+                    )}
                   </TouchableOpacity>
 
                   <Text style={styles.signsub}>Or</Text>
@@ -262,6 +319,8 @@ const Sign = () => {
                         placeholder="Placeholder text"
                         placeholderTextColor={colors.grey}  
                         autoCapitalize="none"
+                        value={loginData.email}
+                        onChangeText={(text) => handleLoginInputChange('email', text)}
                       />
 
                       <TouchableOpacity>
@@ -308,10 +367,15 @@ const Sign = () => {
 
                 <View style={styles.logbox}>
                   <TouchableOpacity 
-                    style={styles.signbutton}
+                    style={[styles.signbutton, loading && styles.disabledbutton]}
                     onPress={handleLogin}
+                    disabled={loading}
                   >
-                    <Text style={styles.signtext}>Login</Text>
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.signtext}>Login</Text>
+                    )}
                   </TouchableOpacity>
 
                   <Text style={styles.logsub}>Or</Text>
