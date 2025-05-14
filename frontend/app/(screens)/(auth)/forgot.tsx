@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
 
 // Import Supported Contents
-import { View, Text, Image, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
-import { TextInput } from 'react-native-gesture-handler';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Alert, ActivityIndicator } from 'react-native';
 
 // Import View and Storage
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,9 +11,33 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Import Icons, Images and Colors
 import { icons, images } from '../../../constants';
 import colors from '../../../constants/colors';
+import { requestResetCode } from '../../../src/services/api';
 
 const Forgot = () => {
   const router = useRouter();
+
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!email) {
+      Alert.alert('Error', 'Please enter your email');
+      return;
+    }
+
+    setLoading(true);
+    const result = await requestResetCode(email);
+    setLoading(false);
+
+    if (result.success) {
+      router.push({ 
+        pathname: '/code',
+        params: { email }
+      });
+    } else {
+      Alert.alert('Error', result.error);
+    }
+  };
 
   return (
     <>
@@ -48,6 +71,9 @@ const Forgot = () => {
                         placeholder="Placeholder text"
                         placeholderTextColor={colors.grey}  
                         autoCapitalize="none"
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
                       />
 
                       <TouchableOpacity>
@@ -57,10 +83,14 @@ const Forgot = () => {
             </View>
 
             <TouchableOpacity 
-              onPress={() => router.push('/code')}
-              style={styles.button}
+              onPress={handleSubmit}
+              disabled={loading}
             >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
                 <Text style={styles.buttontext}>Continue</Text>
+              )}
             </TouchableOpacity>
           </View>
       </SafeAreaView>

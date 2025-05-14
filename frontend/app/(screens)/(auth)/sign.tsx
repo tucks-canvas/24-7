@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
   selectedtext: {
     fontSize: 17,
     fontFamily: 'SF-Pro-Display-Medium',
-    color: 'white',
+    color: colors.white,
   },
 
   /* Add-Ons */

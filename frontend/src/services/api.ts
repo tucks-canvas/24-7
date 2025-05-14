@@ -13,13 +13,13 @@ const api = axios.create({
   },
 });
 
+// Declare registerUser
 export const registerUser = async (userData: {
   username: string;
   email: string;
   password: string;
 }) => {
   try {
-    // Format exactly like the working PowerShell example
     const payload = {
       username: userData.username,
       email: userData.email,
@@ -43,7 +43,7 @@ export const registerUser = async (userData: {
   }
 };
 
-// Similarly update loginUser
+// Declare loginUser
 export const loginUser = async (credentials: {
   email: string;
   password: string;
@@ -70,5 +70,91 @@ export const loginUser = async (credentials: {
       error: error.response?.data?.error || 'Login failed',
       details: error.response?.data?.details || error.message
     };
+  }
+};
+
+// Declare requestResetCode
+export const requestResetCode = async (email: string) => {
+  try {
+    const response = await api.post('/auth/request-password-reset', { email });
+    return {
+      success: true,
+      message: response.data.message
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Failed to send code'
+    };
+  }
+};
+
+// Declare verifyResetCode
+export const verifyResetCode = async (email: string, code: string) => {
+  try {
+    const response = await api.post('/auth/verify-reset-code', { 
+      email,
+      token: code 
+    });
+    return {
+      success: true,
+      token: response.data.token 
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Invalid verification code'
+    };
+  }
+};
+
+// Declare updatePassword
+export const updatePassword = async (token: string, newPassword: string) => {
+  try {
+    const response = await api.post('/auth/reset-password', {
+      token,
+      new_password: newPassword
+    });
+    return {
+      success: true,
+      message: response.data.message
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Password update failed'
+    };
+  }
+};
+
+// Declare getUserProfile
+export const getUserProfile = async () => {
+  try {
+    const response = await api.get('/api/v1/users/me');
+    console.error('Fetching error:', response.data);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+// Declare updateUserProfile
+export const updateUserProfile = async (data: { name?: string; location?: string }) => {
+  try {
+    const response = await api.patch('/api/v1/users/me', data);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+// Declare logoutUser
+export const logoutUser = async () => {
+  try {
+    await api.post('/api/v1/auth/logout');
+    await SecureStore.deleteItemAsync('auth_token');
+    await AsyncStorage.removeItem('user');
+  } catch (error) {
+    console.error('Logout error:', error);
   }
 };

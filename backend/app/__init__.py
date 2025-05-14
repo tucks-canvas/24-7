@@ -7,6 +7,7 @@ from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+from flask_mail import Mail
 from app.config import Config
 
 # Initialize Flask application
@@ -21,6 +22,9 @@ db = SQLAlchemy(app)
 
 # Instantiate Flask-Migrate library here
 migrate = Migrate(app, db)
+
+# Instantiate Flask-Mail
+mail = Mail(app)
 
 # Instantiate CSRF-Protect library here
 csrf = CSRFProtect(app)

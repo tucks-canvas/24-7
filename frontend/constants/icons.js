@@ -33,6 +33,7 @@ import shield from "../assets/icons/shield.png";
 import lock from "../assets/icons/lock.png";
 import logout from "../assets/icons/logout.png";
 import edit from "../assets/icons/edit.png";
+import canvas from "../assets/icons/canvas.png";
 
 export default { 
     google,
@@ -70,4 +71,5 @@ export default {
     lock,
     logout,
     edit,
+    canvas,
 };

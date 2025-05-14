@@ -1,20 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 
 // Import React-Native Content 
-import { View, Text, Image, StyleSheet, TouchableOpacity, StatusBar, ImageBackground } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, StatusBar, ImageBackground, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Import Icons and Images 
 import { icons, images } from '../../constants';
 import colors from '../../constants/colors';
+import { getUserProfile, logoutUser } from '../../src/services/api';
 
 const Profile = () => {
   const router = useRouter();
+
+  const [loading, setLoading] = useState(false);
+
+  const [user, setUser] = useState({
+    name: 'Loading...',
+    location: '',
+    avatar: images.profile
+  });
+
   const [notificationEnabled, setNotificationEnabled] = useState(false);
 
-  const toggleNotification = () => {
-    setNotificationEnabled((prev) => !prev);
+  useEffect(() => {
+    const loadProfile = async () => {
+      setLoading(true);
+      try {
+        const profile = await getUserProfile();
+        setUser({
+          name: profile.name || 'Anonymous',
+          location: profile.location || 'No location set',
+          avatar: profile.avatar ? { uri: profile.avatar } : images.profile
+        });
+      } catch (error) {
+        Alert.alert('Error', 'Failed to load profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, []);
+
+  const handleLogout = async () => {
+    setLoading(true);
+    try {
+      await logoutUser();
+      router.replace('/sign');
+    } catch (error) {
+      Alert.alert('Error', 'Logout failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = async () => {
+    router.push('/edit');
   };
 
   const menu = [
@@ -46,7 +88,7 @@ const Profile = () => {
       id: 4,
       title: 'Logout',
       image: icons.logout,
-      link: '/sign',
+      action: handleLogout,
     },
   ];
 
@@ -81,7 +123,11 @@ const Profile = () => {
               <View style={styles.bodyimage}>
                 <Image source={images.profile} style={styles.lrgimage} resizeMode="cover" />
               </View>
-              <TouchableOpacity style={styles.edit}>
+
+              <TouchableOpacity 
+                style={styles.edit}
+                onPress={handleEdit}
+              >
                 <Image source={icons.edit} style={styles.smlicon} tintColor={colors.lightblue} />
                 <Text style={styles.editext}>Edit</Text>
               </TouchableOpacity>
@@ -89,8 +135,8 @@ const Profile = () => {
           </View>
 
           <View style={styles.textcontent}>
-            <Text style={styles.text}>Denuyel</Text>
-            <Text style={styles.subtext}>2972 Westheimer Rd. Santa Ana, Illinois 85486</Text>
+            <Text style={styles.text}>{user.name}</Text>
+            <Text style={styles.subtext}>{user.location}</Text>
           </View>
 
           <View style={styles.menu}>
@@ -98,11 +144,7 @@ const Profile = () => {
               <TouchableOpacity
                 key={item.id}
                 style={styles.item}
-                onPress={() => {
-                  if (!item.hasToggle && item.link) {
-                    router.push(item.link);
-                  }
-                }}
+                onPress={item.action || (() => item.link && router.push(item.link))}
               >
                 <View style={styles.itemcontents}>
                   <View style={styles.itemcontent}>
@@ -113,7 +155,9 @@ const Profile = () => {
                   </View>
 
                   {item.hasToggle && (
-                    <TouchableOpacity onPress={toggleNotification}>
+                    <TouchableOpacity 
+                      onPress={() => setNotificationEnabled(!notificationEnabled)}
+                    >
                       <Image
                         source={notificationEnabled ? icons.on : icons.off}
                         style={styles.icon}

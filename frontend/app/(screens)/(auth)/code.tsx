@@ -1,76 +1,141 @@
-import React, { useState } from 'react';
-import { useRouter } from 'expo-router';
+import React, { useState, useRef, useEffect } from 'react';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 // Import Supported Contents
-import { View, Text, Image, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
-import { TextInput } from 'react-native-gesture-handler';
-
-// Import View and Storage
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, Image, StyleSheet, TouchableOpacity, StatusBar, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Import Icons, Images and Colors
-import { icons, images } from '../../../constants';
-import colors from '../../../constants/colors';
+// Import Icons, Images and Colors 
+import { icons, colors } from '../../../constants';
+import { verifyResetCode } from '../../../src/services/api';
 
 const Code = () => {
   const router = useRouter();
+  const { email } = useLocalSearchParams();
+  
+  // Create refs array for each input
+  const inputRefs = useRef<(TextInput | null)[]>([]);
+  const [code, setCode] = useState(['', '', '', '']);
+  const [loading, setLoading] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
-  const [focusedInput, setFocusedInput] = useState(null);
+  // Initialize refs array
+  useEffect(() => {
+    inputRefs.current = inputRefs.current.slice(0, 4);
+    // Auto-focus first input on mount
+    inputRefs.current[0]?.focus();
+  }, []);
+
+  const handleVerify = async () => {
+    const fullCode = code.join('');
+    if (fullCode.length !== 4) {
+      Alert.alert('Error', 'Please enter the 4-digit code');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await verifyResetCode(email as string, fullCode);
+      if (result.success) {
+        router.push({
+          pathname: '/new',
+          params: { token: result.token }
+        });
+      } else {
+        Alert.alert('Error', result.error || 'Verification failed');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCodeChange = (text: string, index: number) => {
+    // Only allow numeric input
+    const numericText = text.replace(/[^0-9]/g, '');
+    const newCode = [...code];
+    newCode[index] = numericText;
+    setCode(newCode);
+    
+    // Auto-focus next input if a digit was entered
+    if (numericText && index < 3) {
+      inputRefs.current[index + 1]?.focus();
+    }
+    
+    // Auto-submit if last digit entered
+    if (index === 3 && numericText) {
+      handleVerify();
+    }
+  };
+
+  const handleKeyPress = ({ nativeEvent }: any, index: number) => {
+    // Handle backspace to move to previous input
+    if (nativeEvent.key === 'Backspace' && !code[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleResend = async () => {
+    // Implement resend logic here if needed
+    Alert.alert('Code Resent', 'A new code has been sent to your email');
+  };
 
   return (
-    <>
-      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />  
-      
-      <SafeAreaView style={styles.safeArea}>
-          <View style={styles.container}>
-            <TouchableOpacity 
-              onPress={() => router.back()}
-              style={styles.header}
-            >
-                <Image
-                    source={icons.back}
-                    style={styles.smlicon}
-                    tintColor={colors.black}                
-                />
-            </TouchableOpacity> 
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.header}>
+          <Image source={icons.back} style={styles.smlicon} tintColor={colors.black} />
+        </TouchableOpacity>
 
-            <View style={styles.body}>
-                <Text style={styles.bodytext}>Enter your 4 digit code</Text>
-                <Text style={styles.bodysubtext}>Please check your email and enter your 4 digit code</Text>
-            </View>           
+        <View style={styles.body}>
+          <Text style={styles.bodytext}>Enter your 4 digit code</Text>
+          <Text style={styles.bodysubtext}>Please check your email and enter your 4 digit code</Text>
+        </View>
 
-            <View style={styles.digits}>
-                {[0, 1, 2, 3].map((index) => (
-                    <TextInput
-                        key={index}
-                        placeholderTextColor={colors.grey}
-                        placeholder=''
-                        style={[
-                            styles.input,
-                            focusedInput === index && styles.selectedinput
-                        ]}
-                        onFocus={() => setFocusedInput(index)}
-                        onBlur={() => setFocusedInput(null)}
-                        keyboardType="number-pad"
-                        maxLength={1}
-                    />
-                ))}
-            </View>
+        <View style={styles.digits}>
+          {[0, 1, 2, 3].map((index) => (
+            <TextInput
+              key={index}
+              ref={(el) => (inputRefs.current[index] = el)}
+              value={code[index]}
+              onChangeText={(text) => handleCodeChange(text, index)}
+              onKeyPress={({ nativeEvent }) => handleKeyPress({ nativeEvent }, index)}
+              onFocus={() => setFocusedIndex(index)}
+              onBlur={() => setFocusedIndex(null)}
+              style={[
+                styles.input,
+                focusedIndex === index && styles.selectedinput
+              ]}
+              placeholder="•"
+              placeholderTextColor={colors.grey}
+              keyboardType="number-pad"
+              maxLength={1}
+              textContentType="oneTimeCode" // iOS autofill
+              autoComplete="one-time-code" // Android autofill
+            />
+          ))}
+        </View>
 
-            <View style={styles.resend}>
-                <Text style={styles.sendtext}>Did you get a code? <Text style={styles.sendsub}>Resend</Text></Text>
-            </View>
+        <TouchableOpacity onPress={handleResend} style={styles.resend}>
+          <Text style={styles.sendtext}>
+            Didn't receive a code? <Text style={styles.sendsub}>Resend</Text>
+          </Text>
+        </TouchableOpacity>
 
-            <TouchableOpacity 
-                onPress={() => router.push('/new')}
-                style={styles.button}
-            >
-                <Text style={styles.buttontext}>Verify</Text>
-            </TouchableOpacity>
-          </View>
-      </SafeAreaView>
-    </>
+        <TouchableOpacity
+          onPress={handleVerify}
+          disabled={loading}
+          style={[styles.button, loading && styles.disabledbutton]}
+        >
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.buttontext}>Verify</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 };
 

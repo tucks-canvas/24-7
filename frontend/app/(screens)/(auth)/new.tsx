@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 // Import Supported Contents
-import { View, Text, Image, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
-import { TextInput } from 'react-native-gesture-handler';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Alert, ActivityIndicator } from 'react-native';
 
 // Import View and Storage
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,28 +11,55 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Import Icons, Images and Colors
 import { icons, images } from '../../../constants';
 import colors from '../../../constants/colors';
+import { updatePassword } from '../../../src/services/api';
 
-const Forgot = () => {
+const New = () => {
   const router = useRouter();
+  const { token } = useLocalSearchParams();
+  
+  const [loading, setLoading] = useState(false);
+  
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+ 
+  const [newPasswordData, setNewPasswordData] = useState({
+    password: '',
+  });
+  
+  const [passwordData, setPasswordData] = useState({
+    password: '',
+  });
 
-    const [newPasswordData, setNewPasswordData] = useState({
-      password: '',
-    });
-    
-    const [passwordData, setPasswordData] = useState({
-      password: '',
-    });
-    
-    const [showPassword, setShowPassword] = useState(false);
-    const [showNewPassword, setShowNewPassword] = useState(false);
-  
-    const handleNewPasswordChange = (name, value) => {
-      setNewPasswordData(prev => ({ ...prev, [name]: value }));
-    };
-  
-    const handlePasswordChange = (name, value) => {
-      setPasswordData(prev => ({ ...prev, [name]: value }));
-    };
+  const handleSubmit = async () => {
+    if (passwordData.password !== newPasswordData.password) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    if (newPasswordData.password.length < 8) {
+      Alert.alert('Error', 'Password must be at least 8 characters');
+      return;
+    }
+
+    setLoading(true);
+    const result = await updatePassword(token as string, newPasswordData.password);
+    setLoading(false);
+
+    if (result.success) {
+      Alert.alert('Success', 'Password updated successfully!');
+      router.replace('/sign');
+    } else {
+      Alert.alert('Error', result.error);
+    }
+  };
+
+  const handleNewPasswordChange = (name, value) => {
+    setNewPasswordData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handlePasswordChange = (name, value) => {
+    setPasswordData(prev => ({ ...prev, [name]: value }));
+  };
 
   return (
     <>
@@ -53,7 +79,7 @@ const Forgot = () => {
             </TouchableOpacity> 
 
             <View style={styles.body}>
-                <Text style={styles.bodytext}>Forgot Password</Text>
+                <Text style={styles.bodytext}>New Password</Text>
                 <Text style={styles.bodysubtext}>Please enter your email. We will send a code to your mail to reset your password</Text>
             </View>           
 
@@ -74,7 +100,7 @@ const Forgot = () => {
 
                       <TouchableOpacity 
                         onPress={() => setShowNewPassword(!showNewPassword)}
-                        style={styles.fieldimage}
+                        style={styles.textimage}
                       >
                         <Image
                           source={showNewPassword ? icons.show : icons.hide}
@@ -100,7 +126,7 @@ const Forgot = () => {
 
                       <TouchableOpacity 
                         onPress={() => setShowPassword(!showPassword)}
-                        style={styles.fieldimage}
+                        style={styles.textimage}
                       >
                         <Image
                           source={showPassword ? icons.show : icons.hide}
@@ -112,10 +138,15 @@ const Forgot = () => {
             </View>
 
             <TouchableOpacity 
-              onPress={() => router.push('/sign')}
-              style={styles.button}
+              onPress={handleSubmit}
+              disabled={loading}
+              style={[styles.button, loading && styles.disabledbutton]}
             >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
                 <Text style={styles.buttontext}>Done</Text>
+              )}
             </TouchableOpacity>
           </View>
       </SafeAreaView>
@@ -240,4 +271,4 @@ const styles = StyleSheet.create({
 
 });
 
-export default Forgot;
+export default New;

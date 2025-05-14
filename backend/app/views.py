@@ -31,6 +31,10 @@ from app.models import User
 
 from flask_wtf.csrf import generate_csrf
 
+from itsdangerous import URLSafeTimedSerializer
+from flask_mail import Message
+from app import mail
+
 
 ##
 # Functions for authorisation.
@@ -73,7 +77,6 @@ def requires_auth(f):
 @app.route('/')
 def index():
     return jsonify(message="This is the beginning of our API")
-
 
 @app.route('/api/v1/register', methods=['POST'])
 def register():
@@ -191,7 +194,78 @@ def logout():
 
 
 ##
-# Functions for post creation and retrieval.
+# Functions for password reset
+##
+
+#
+@app.route('/auth/request-password-reset', methods=['POST'])
+def request_reset():
+    email = request.json.get('email')
+    user = User.query.filter_by(email=email).first()
+    
+    if user:
+        # Generate 4-digit code
+        reset_code = ''.join([str(random.randint(0, 9)) for _ in range(4)])
+        expiration = datetime.utcnow() + timedelta(minutes=15)
+        
+        # Store code in database
+        user.reset_code = reset_code
+        user.reset_code_expiration = expiration
+        db.session.commit()
+        
+        # Send email
+        msg = Message(
+            "Your Password Reset Code",
+            recipients=[email],
+            body=f"Your verification code is: {reset_code}"
+        )
+        mail.send(msg)
+    
+    return jsonify({"message": "If email exists, code was sent"}), 200
+
+#
+@app.route('/auth/verify-reset-code', methods=['POST'])
+def verify_code():
+    email = request.json.get('email')
+    token = request.json.get('token')
+    user = User.query.filter_by(email=email).first()
+    
+    if not user or user.reset_code != token:
+        return jsonify({"error": "Invalid code"}), 400
+        
+    if user.reset_code_expiration < datetime.utcnow():
+        return jsonify({"error": "Code expired"}), 400
+        
+    # Generate token for password change
+    s = Serializer(current_app.config['SECRET_KEY'], expires_in=3600)
+    token = s.dumps({'user_id': user.id}).decode('utf-8')
+    
+    return jsonify({"token": token}), 200
+
+#
+@app.route('/auth/reset-password', methods=['POST'])
+def reset_password():
+    token = request.json.get('token')
+    new_password = request.json.get('new_password')
+    
+    try:
+        s = Serializer(current_app.config['SECRET_KEY'])
+        data = s.loads(token)
+    except:
+        return jsonify({"error": "Invalid token"}), 400
+    
+    user = User.query.get(data['user_id'])
+    if user:
+        user.password = generate_password_hash(new_password)
+        user.reset_code = None  # Clear reset code
+        db.session.commit()
+        return jsonify({"message": "Password updated"}), 200
+    
+    return jsonify({"error": "User not found"}), 404
+
+
+##
+# Functions for login management
 ##
 
 # Define the login manager route
