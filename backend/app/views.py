@@ -40,7 +40,6 @@ from app import mail
 # Functions for authorisation.
 ##
 
-# 
 def requires_auth(f):
   @wraps(f)
   def decorated(*args, **kwargs):
@@ -78,30 +77,12 @@ def requires_auth(f):
 def index():
     return jsonify(message="This is the beginning of our API")
 
+#
 @app.route('/api/v1/register', methods=['POST'])
 def register():
-    print("\n=== NEW REGISTRATION ATTEMPT ===")
-    print("Headers:", request.headers)
-    print("Raw data:", request.data.decode('utf-8'))  # Decode bytes to string
-    
     try:
-        # Manually handle JSON parsing to get better error messages
-        if not request.data:
-            return jsonify({"error": "No data received"}), 400
-            
-        try:
-            data = request.get_json(force=True)  # force=True to ignore Content-Type
-        except Exception as e:
-            print("JSON Parse Error:", str(e))
-            return jsonify({
-                "error": "Invalid JSON format",
-                "details": str(e),
-                "received": request.data.decode('utf-8')
-            }), 400
-
-        print("Parsed JSON:", data)
+        data = request.get_json(force=True)
         
-        # Simplified validation - bypass WTForms for API
         required_fields = ['username', 'password', 'email']
         missing = [field for field in required_fields if field not in data]
         if missing:
@@ -110,18 +91,19 @@ def register():
                 "missing": missing
             }), 400
             
-        # Check for existing user
         if User.query.filter_by(username=data['username']).first():
             return jsonify({"error": "Username already exists"}), 400
             
         if User.query.filter_by(email=data['email']).first():
             return jsonify({"error": "Email already exists"}), 400
         
-        # Create user directly from JSON data
         user = User(
             username=data['username'],
-            password=data['password'],  # Let model handle hashing
-            email=data['email']
+            password=data['password'],
+            email=data['email'],
+            firstname=data.get('firstname'),
+            lastname=data.get('lastname'),
+            location=data.get('location')
         )
         
         db.session.add(user)
@@ -129,23 +111,22 @@ def register():
         
         return jsonify({
             "message": "User registered successfully",
-            "username": user.username
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "firstname": user.firstname,
+                "lastname": user.lastname,
+                "location": user.location
+            }
         }), 201
         
     except SQLAlchemyError as e:
         db.session.rollback()
-        print("Database Error:", str(e))
-        return jsonify({
-            "error": "Database operation failed",
-            "details": str(e)
-        }), 500
-        
+        return jsonify({"error": "Database operation failed", "details": str(e)}), 500
     except Exception as e:
-        print("Unexpected Error:", str(e))
-        return jsonify({
-            "error": "Registration failed",
-            "details": str(e)
-        }), 400
+        return jsonify({"error": "Registration failed", "details": str(e)}), 400
+
 
 # Define the login route
 @app.route('/api/v1/auth/login', methods=['POST'])
@@ -179,19 +160,26 @@ def login():
 
 # Define the logout route
 @app.route('/api/v1/auth/logout', methods=['POST'])
-@login_required  # Ensure the user is logged in to log out
+@login_required 
 def logout():
     try:
-        # Perform logout operations
-        logout_user()  # Log out the user
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({"error": "Missing or invalid authorization header"}), 401
+            
+        logout_user()
         
-        # Return a success message
-        return jsonify({"message": "User successfully logged out."}), 200
+        return jsonify({
+            "message": "User successfully logged out.",
+            "success": True
+        }), 200
 
     except Exception as e:
-        # Handle any unexpected errors
-        return jsonify({"error": "Logout failed", "details": str(e)}), 500
-
+        return jsonify({
+            "error": "Logout failed",
+            "details": str(e),
+            "success": False
+        }), 500
 
 ##
 # Functions for password reset
@@ -204,16 +192,13 @@ def request_reset():
     user = User.query.filter_by(email=email).first()
     
     if user:
-        # Generate 4-digit code
         reset_code = ''.join([str(random.randint(0, 9)) for _ in range(4)])
         expiration = datetime.utcnow() + timedelta(minutes=15)
         
-        # Store code in database
         user.reset_code = reset_code
         user.reset_code_expiration = expiration
         db.session.commit()
         
-        # Send email
         msg = Message(
             "Your Password Reset Code",
             recipients=[email],
@@ -236,7 +221,6 @@ def verify_code():
     if user.reset_code_expiration < datetime.utcnow():
         return jsonify({"error": "Code expired"}), 400
         
-    # Generate token for password change
     s = Serializer(current_app.config['SECRET_KEY'], expires_in=3600)
     token = s.dumps({'user_id': user.id}).decode('utf-8')
     
@@ -257,7 +241,7 @@ def reset_password():
     user = User.query.get(data['user_id'])
     if user:
         user.password = generate_password_hash(new_password)
-        user.reset_code = None  # Clear reset code
+        user.reset_code = None
         db.session.commit()
         return jsonify({"message": "Password updated"}), 200
     
@@ -271,46 +255,88 @@ def reset_password():
 # Define the login manager route
 @login_manager.user_loader
 def load_user(user_id):
-    # Query the database for the user by user ID
     return User.query.get(int(user_id))
+
+
+##
+# Functions for user management
+##
 
 @app.route('/api/v1/users/<int:user_id>', methods=['GET'])
 @login_required
+def get_user_profile(user_id):
+    try:
+        # Verify the requested user matches the logged-in user
+        if current_user.id != user_id:
+            return jsonify({"error": "Unauthorized access"}), 403
+            
+        return jsonify({
+            "id": current_user.id,
+            "username": current_user.username,
+            "firstname": current_user.firstname,
+            "lastname": current_user.lastname,
+            "location": current_user.location,
+            "profile_photo": current_user.profile_photo,
+            "joined_on": current_user.joined_on.strftime('%Y-%m-%d %H:%M:%S')
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+#
+@app.route('/api/v1/users/<int:user_id>/photo', methods=['POST'])
+@login_required
 @requires_auth
-def get_user_details(user_id):
+def upload_user_profile_photo(user_id):
+    try:
+        if current_user.id != user_id:
+            return jsonify({"error": "Can only upload photo to your own profile"}), 403
 
-    # Ensure user_id is a valid integer
-    user_details = db.session.execute(db.select(User).filter_by(id=int(user_id))).scalar()
-
-    if not user_details:
-        return jsonify({"error": "User not found"}), 404
-
-    # Return user details and other information
-    return jsonify({
-        "id": user_details.id,
-        "username": user_details.username,
-        "firstname": user_details.firstname,
-        "lastname": user_details.lastname,
-        "email": user_details.email,
-        "location": user_details.location,
-        "profile_photo": url_for('get_photo', filename=user_details.profile_photo),
-        "joined_on": user_details.joined_on.strftime('%B %Y'),
-    }), 200
-    
+        if 'file' not in request.files:
+            return jsonify({"error": "No file provided"}), 400
+            
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
+            
+        if file and allowed_file(file.filename):
+            if current_user.profile_photo:
+                old_filepath = os.path.join(app.config['UPLOAD_FOLDER'], current_user.profile_photo)
+                if os.path.exists(old_filepath):
+                    os.remove(old_filepath)
+            
+            # Save new photo
+            filename = secure_filename(f"user_{user_id}_{file.filename}")
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            
+            # Update user record
+            current_user.profile_photo = filename
+            db.session.commit()
+            
+            return jsonify({
+                "message": "Profile photo uploaded successfully",
+                "filename": filename,
+                "photo_url": url_for('get_photo', filename=filename, _external=True)
+            }), 200
+            
+        return jsonify({"error": "Invalid file type"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 ##
 # Functions for token creation in API's and Web Forms.
 ##
 
-
 # API route for retrieving CSRF token
 @app.route('/api/v1/csrf-token', methods=['GET'])
 def get_csrf():
     try:
-        csrf_token = generate_csrf()  # Ensure this function call works correctly
-        return jsonify({'csrf_token': csrf_token})  # Return valid JSON
+        csrf_token = generate_csrf() 
+        return jsonify({'csrf_token': csrf_token})  
     except Exception as e:
-        return jsonify({'error': str(e)}), 500  # Catch any errors and return 500
+        return jsonify({'error': str(e)}), 500
 
 
 # API route for generatiing JWT token
@@ -324,10 +350,14 @@ def generate_token(uid):
     token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
     return token
 
+##
+# Functions for image processing
+##
 
-##
-# Functions for file handling.
-##
+# API route for serving uploaded photos
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
 
 
 # API route for serving uploaded photos
@@ -338,7 +368,6 @@ def get_photo(filename):
 ##
 # Functions for error, and request handling.
 ##
-
 
 # Error function for form.
 def form_errors(form):

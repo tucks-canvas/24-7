@@ -6,7 +6,8 @@ import { View, Text, Image, StyleSheet, TouchableOpacity, StatusBar, Alert, Acti
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Import Icons, Images and Colors 
-import { icons, colors } from '../../../constants';
+import { icons, images } from '../../../constants';
+import colors from '../../../constants/colors';
 import { verifyResetCode } from '../../../src/services/api';
 
 const Code = () => {
@@ -129,7 +130,7 @@ const Code = () => {
           style={[styles.button, loading && styles.disabledbutton]}
         >
           {loading ? (
-            <ActivityIndicator color="white" />
+            <ActivityIndicator color={colors.white} />
           ) : (
             <Text style={styles.buttontext}>Verify</Text>
           )}

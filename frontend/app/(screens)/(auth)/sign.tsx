@@ -45,6 +45,10 @@ const Sign = () => {
     username: '',
     email: '',
     password: '',
+    firstname: '',
+    lastname: '',
+    location: '',
+    profile_photo: ''
   });
   
   const [loginData, setLoginData] = useState({
@@ -70,7 +74,6 @@ const Sign = () => {
 
     const signupErrors: FormErrors = { ...errors, signup: {} };
 
-    // Validation
     if (!signupData.username) 
       signupErrors.signup.username = 'Username is required';
 
@@ -96,12 +99,24 @@ const Sign = () => {
       const result = await registerUser({
         username: signupData.username,
         email: signupData.email,
-        password: signupData.password
+        password: signupData.password,
+        firstname: signupData.firstname,
+        lastname: signupData.lastname,
+        location: signupData.location,
+        profile_photo: signupData.profile_photo,
       });
 
       if (result.success) {
         Alert.alert('Success', 'Account created successfully!');
-        setSignupData({ username: '', email: '', password: '' });
+        setSignupData({ 
+          username: '', 
+          email: '', 
+          password: '', 
+          firstname: '', 
+          lastname: '',
+          location: '', 
+          profile_photo: '',
+        });
         setActiveView('login');
       } else {
         Alert.alert('Error', result.error || 'Registration failed');

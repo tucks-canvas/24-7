@@ -73,6 +73,23 @@ export const loginUser = async (credentials: {
   }
 };
 
+// Declare logoutUser
+export const logoutUser = async () => {
+  try {
+    const token = await SecureStore.getItemAsync('auth_token');
+    await api.post('/auth/logout', {}, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    await SecureStore.deleteItemAsync('auth_token');
+    await AsyncStorage.removeItem('user');
+  } catch (error) {
+    console.error('Logout error:', error);
+    throw error;
+  }
+};
+
 // Declare requestResetCode
 export const requestResetCode = async (email: string) => {
   try {
@@ -127,34 +144,99 @@ export const updatePassword = async (token: string, newPassword: string) => {
   }
 };
 
-// Declare getUserProfile
-export const getUserProfile = async () => {
+// Declare user profile
+export const getUserProfile = async (userId?: number) => {
   try {
-    const response = await api.get('/api/v1/users/me');
-    console.error('Fetching error:', response.data);
+    const token = await SecureStore.getItemAsync('auth_token');
+    
+    if (!userId) {
+      const userJson = await SecureStore.getItemAsync('user');
+      if (userJson) {
+        userId = JSON.parse(userJson).id;
+      }
+    }
+    
+    if (!userId) {
+      throw new Error('User ID not available');
+    }
+
+    const response = await api.get(`/users/${userId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      }
+    });
     return response.data;
-  } catch (error) {
-    throw error.response?.data || error.message;
+  } catch (error: any) {
+    console.error('Error fetching profile:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    throw error;
   }
 };
 
-// Declare updateUserProfile
-export const updateUserProfile = async (data: { name?: string; location?: string }) => {
+// Declare user profile by ID
+export const updateUserProfile = async (
+  userId: number,
+  data: { 
+    firstname?: string;
+    lastname?: string;
+    location?: string;
+  }
+) => {
   try {
-    const response = await api.patch('/api/v1/users/me', data);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || error.message;
+    const token = await SecureStore.getItemAsync('auth_token');
+    const response = await api.patch(`/users/${userId}`, data, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Profile update failed',
+      details: error.response?.data?.details || error.message
+    };
   }
 };
 
-// Declare logoutUser
-export const logoutUser = async () => {
+// Upload profile photo by user ID
+export const uploadProfilePhoto = async (userId: number, imageUri: string) => {
   try {
-    await api.post('/api/v1/auth/logout');
-    await SecureStore.deleteItemAsync('auth_token');
-    await AsyncStorage.removeItem('user');
-  } catch (error) {
-    console.error('Logout error:', error);
+    const token = await SecureStore.getItemAsync('auth_token');
+    const formData = new FormData();
+    const filename = imageUri.split('/').pop();
+    const fileType = filename?.split('.').pop();
+    
+    formData.append('file', {
+      uri: imageUri,
+      name: `profile_${userId}_${Date.now()}.${fileType}`,
+      type: `image/${fileType}`
+    } as any);
+    
+    const response = await api.post(`/users/${userId}/photo`, formData, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Photo upload failed',
+      details: error.response?.data?.details || error.message
+    };
   }
 };

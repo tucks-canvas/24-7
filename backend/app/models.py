@@ -8,13 +8,20 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, unique=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     password = db.Column(db.String(128), nullable=False)
-    email = db.Column(db.String(255), unique=True, nullable=False) 
+    email = db.Column(db.String(255), unique=True, nullable=False)
+    firstname = db.Column(db.String(64), nullable=True)
+    lastname = db.Column(db.String(64), nullable=True)
+    location = db.Column(db.String(255), nullable=True)
+    profile_photo = db.Column(db.String(255), nullable=True)
     joined_on = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
-    def __init__(self, username, password, email):
+    
+    def __init__(self, username, password, email, firstname=None, lastname=None, location=None):
         self.username = username
         self.password = generate_password_hash(password, method='pbkdf2:sha256')
         self.email = email
+        self.firstname = firstname
+        self.lastname = lastname
+        self.location = location
         self.joined_on = datetime.utcnow()
 
     def is_authenticated(self):

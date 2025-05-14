@@ -5,6 +5,9 @@ import { useRouter } from 'expo-router';
 import { View, Text, Image, StyleSheet, TouchableOpacity, StatusBar, ImageBackground, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Import View and Storage
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 // Import Icons and Images 
 import { icons, images } from '../../constants';
 import colors from '../../constants/colors';
@@ -12,29 +15,53 @@ import { getUserProfile, logoutUser } from '../../src/services/api';
 
 const Profile = () => {
   const router = useRouter();
-
+  
   const [loading, setLoading] = useState(false);
-
-  const [user, setUser] = useState({
-    name: 'Loading...',
-    location: '',
-    avatar: images.profile
-  });
-
+  
   const [notificationEnabled, setNotificationEnabled] = useState(false);
+  
+  const [userId, setUserId] = useState<number | null>(null);
+  const [user, setUser] = useState({
+    username: 'Loading...',
+    firstname: '',
+    lastname: '',
+    location: '',
+    profile_photo: images.profile
+  });
 
   useEffect(() => {
     const loadProfile = async () => {
       setLoading(true);
       try {
-        const profile = await getUserProfile();
+        // First get the stored user data
+        const userJson = await AsyncStorage.getItem('user');
+        if (!userJson) {
+          throw new Error('No user data found');
+        }
+        
+        const storedUser = JSON.parse(userJson);
+        if (!storedUser?.id) {
+          throw new Error('User ID not found in stored data');
+        }
+        
+        setUserId(storedUser.id);
+        
+        // Then fetch the profile
+        const profile = await getUserProfile(storedUser.id);
+        
         setUser({
-          name: profile.name || 'Anonymous',
-          location: profile.location || 'No location set',
-          avatar: profile.avatar ? { uri: profile.avatar } : images.profile
+          username: profile.username || storedUser.username || 'Anonymous',
+          firstname: profile.firstname || storedUser.firstname || '',
+          lastname: profile.lastname || storedUser.lastname || '',
+          location: profile.location || storedUser.location || 'No location set',
+          profile_photo: profile.profile_photo 
+            ? { uri: profile.profile_photo } 
+            : images.profile
         });
+        
       } catch (error) {
-        Alert.alert('Error', 'Failed to load profile');
+        console.error('Profile load error:', error);
+        Alert.alert('Error', error.message || 'Failed to load profile');
       } finally {
         setLoading(false);
       }
@@ -47,10 +74,15 @@ const Profile = () => {
     setLoading(true);
     try {
       await logoutUser();
+      await AsyncStorage.clear(); 
       router.replace('/sign');
-    } catch (error) {
-      Alert.alert('Error', 'Logout failed');
-    } finally {
+    } 
+    catch (error) 
+    {
+      Alert.alert('Logout Error', error.message || 'Failed to logout');
+    } 
+    finally 
+    {
       setLoading(false);
     }
   };
@@ -135,7 +167,7 @@ const Profile = () => {
           </View>
 
           <View style={styles.textcontent}>
-            <Text style={styles.text}>{user.name}</Text>
+            <Text style={styles.text}>{user.username}</Text>
             <Text style={styles.subtext}>{user.location}</Text>
           </View>
 
