@@ -15,7 +15,7 @@ import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 // Import Icons and Images 
 import { icons, images } from '../../../constants';
 import colors from '../../../constants/colors';
-import { updateUserProfile } from '../../../src/services/api';
+import { getUserProfile, updateUserProfile, uploadProfilePhoto, apiURL } from '../../../src/services/api';
 
 const Edit = () => {
   const router = useRouter();
@@ -24,34 +24,53 @@ const Edit = () => {
   const [imageLoading, setImageLoading] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
   
+  const [userId, setUserId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     firstname: '',
     lastname: '',
     username: '',
-    location: ''
+    location: '',
+    profile_photo: images.profile
   });
 
-  // Load current user data on mount
   useEffect(() => {
     const fetchUserData = async () => {
+      setLoading(true);
+
       try {
-        setLoading(true);
-        const userData = await getUserProfile();
+        // First get the stored user data
+        const userJson = await AsyncStorage.getItem('user');
+        if (!userJson) {
+          throw new Error('No user data found');
+        }
+        
+        const storedUser = JSON.parse(userJson);
+        if (!storedUser?.id) {
+          throw new Error('User ID not found in stored data');
+        }
+        
+        setUserId(storedUser.id);
+        
+        const userData = await getUserProfile(storedUser.id);
+        
         setFormData({
           firstname: userData.firstname || '',
           lastname: userData.lastname || '',
           username: userData.username || '',
-          location: userData.location || ''
+          location: userData.location || '',
+          profile_photo: userData.profile_photo || images.profile
         });
+        
         if (userData.profile_photo) {
-          setProfileImage({ uri: `${API_BASE_URL}/photos/${userData.profile_photo}` });
+          setProfileImage({ uri: `${apiURL}/photos/${userData.profile_photo}` });
         }
-        // Also update AsyncStorage
-        await AsyncStorage.setItem('user', JSON.stringify(userData));
-      } catch (error) {
-        console.error('Failed to fetch user data:', error);
+      } 
+      catch (error) 
+      {
         Alert.alert('Error', 'Failed to load profile data');
-      } finally {
+      } 
+      finally 
+      {
         setLoading(false);
       }
     };
@@ -85,14 +104,15 @@ const Edit = () => {
         );
         
         // Upload the image
-        const uploadResult = await uploadProfilePhoto(manipulatedImage.uri);
+        if (!userId) throw new Error('User ID not available');
+        const uploadResult = await uploadProfilePhoto(userId, manipulatedImage.uri);
+        
         if (uploadResult.success) {
           setProfileImage({ uri: manipulatedImage.uri });
-          // Update local user data
           const userJson = await AsyncStorage.getItem('user');
           if (userJson) {
             const user = JSON.parse(userJson);
-            user.profile_photo = uploadResult.data.photo_url;
+            user.profile_photo = uploadResult.data.filename;
             await AsyncStorage.setItem('user', JSON.stringify(user));
           }
         } else {
@@ -101,7 +121,7 @@ const Edit = () => {
       }
     } catch (error) {
       console.error('Image picker error:', error);
-      Alert.alert('Error', 'Failed to select image');
+      Alert.alert('Error', error.message || 'Failed to select image');
     } finally {
       setImageLoading(false);
     }
@@ -110,28 +130,33 @@ const Edit = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
-      const result = await updateUserProfile({
+      if (!userId) throw new Error('User ID not available');
+      
+      const result = await updateUserProfile(userId, {
         firstname: formData.firstname,
         lastname: formData.lastname,
         location: formData.location
       });
       
       if (result.success) {
-        // Update local user data
+        // Update local storage
         const userJson = await AsyncStorage.getItem('user');
         if (userJson) {
-          const user = JSON.parse(userJson);
-          user.firstname = formData.firstname;
-          user.lastname = formData.lastname;
-          user.location = formData.location;
-          await AsyncStorage.setItem('user', JSON.stringify(user));
+          const updatedUser = {
+            ...JSON.parse(userJson),
+            firstname: formData.firstname,
+            lastname: formData.lastname,
+            location: formData.location
+          };
+          await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
         }
         Alert.alert('Success', 'Profile updated successfully');
+        router.back();
       } else {
         Alert.alert('Error', result.error || 'Failed to update profile');
       }
     } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred');
+      Alert.alert('Error', error.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -167,106 +192,94 @@ const Edit = () => {
           </View>
 
           <View style={styles.body}>
-            <TouchableOpacity onPress={handleImagePick} disabled={imageLoading}>
-              <View style={styles.bodyimage}>
-                {profileImage ? (
-                  <Image source={profileImage} style={styles.lrgimage} resizeMode="cover" />
-                ) : (
-                  <Image source={images.profile} style={styles.lrgimage} resizeMode="cover" />
-                )}
-                {imageLoading && (
-                  <View style={styles.imageLoadingOverlay}>
-                    <ActivityIndicator color="#fff" size="large" />
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
+            <View style={styles.bodycontent}>
+              <TouchableOpacity onPress={handleImagePick} disabled={imageLoading}>
+                <View style={styles.bodyimage}>
+                  {profileImage ? (
+                    <Image 
+                      source={profileImage} 
+                      style={styles.lrgimage} 
+                      resizeMode="cover" 
+                    />
+                  ) : (
+                    <Image 
+                      source={images.profile} 
+                      style={styles.lrgimage} 
+                      resizeMode="cover" 
+                    />
+                  )}
+
+                  {imageLoading && (
+                    <View style={styles.imageoverlay}>
+                      <ActivityIndicator color="#fff" size="large" />
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <TouchableOpacity 
-            style={styles.photo}
-            onPress={handleImagePick}
-            disabled={imageLoading}
-          >
-            <Image
-              source={icons.canvas}
-              style={styles.smlicon}
-              tintColor={colors.blue}
-            />
-          </TouchableOpacity>
-    
           <View style={styles.textfields}>
-              <View style={styles.textfield}> 
-                  <Text style={styles.text}>First name</Text>
+            <View style={styles.textfield}>
+              <Text style={styles.text}>First Name</Text>
 
-                  <View style={styles.textbody}>
-                      <TextInput
-                          style={styles.input}
-                          placeholder="Placeholder text"
-                          placeholderTextColor={colors.grey}  
-                          autoCapitalize="none"
-                          value={formData.firstname}
-                          onChangeText={(text) => setFormData({...formData, firstname: text})}
-                      />
-
-                      <TouchableOpacity></TouchableOpacity>
-                  </View>
+              <View style={styles.textbody}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter first name"
+                  placeholderTextColor={colors.grey}
+                  value={formData.firstname}
+                  onChangeText={(text) => setFormData({...formData, firstname: text})}
+                />
               </View>
+            </View>
 
-              <View style={styles.textfield}> 
-                  <Text style={styles.text}>Last name</Text>
-
-                  <View style={styles.textbody}>
-                      <TextInput
-                          style={styles.input}
-                          placeholder="Placeholder text"
-                          placeholderTextColor={colors.grey}  
-                          autoCapitalize="none"
-                          value={formData.lastname}
-                          onChangeText={(text) => setFormData({...formData, lastname: text})}
-                        />
-
-                      <TouchableOpacity></TouchableOpacity>
-                  </View>
+            <View style={styles.textfield}>
+              <Text style={styles.text}>Last Name</Text>
+              
+              <View style={styles.textbody}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter last name"
+                  placeholderTextColor={colors.grey}
+                  value={formData.lastname}
+                  onChangeText={(text) => setFormData({...formData, lastname: text})}
+                />
               </View>
+            </View>
 
-              <View style={styles.textfield}> 
-                  <Text style={styles.text}>User name</Text>
-
-                  <View style={styles.textbody}>
-                      <TextInput
-                          style={styles.input}
-                          placeholder="Placeholder text"
-                          placeholderTextColor={colors.grey}  
-                          autoCapitalize="none"
-                          value={formData.username}
-                          onChangeText={(text) => setFormData({...formData, username: text})}
-                      />
-
-                      <TouchableOpacity></TouchableOpacity>
-                  </View>
+            <View style={styles.textfield}>
+              <Text style={styles.text}>Username</Text>
+              
+              <View style={styles.textbody}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter username"
+                  placeholderTextColor={colors.grey}
+                  value={formData.username}
+                  onChangeText={(text) => setFormData({...formData, username: text})}
+                  editable={false}
+                />
               </View>
+            </View>
 
-              <View style={styles.textfield}> 
-                  <Text style={styles.text}>Location</Text>
-
-                  <View style={styles.textbody}>
-                      <TextInput
-                          style={styles.input}
-                          placeholder="Placeholder text"
-                          placeholderTextColor={colors.grey}  
-                          autoCapitalize="none"
-                          value={formData.location}
-                          onChangeText={(text) => setFormData({...formData, location: text})}
-                      />
-
-                      <TouchableOpacity></TouchableOpacity>
-                  </View>
+            <View style={styles.textfield}>
+              <Text style={styles.text}>Location</Text>
+              
+              <View style={styles.textbody}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter location"
+                  placeholderTextColor={colors.grey}
+                  value={formData.location}
+                  onChangeText={(text) => setFormData({...formData, location: text})}
+                />
               </View>
+            </View>
           </View>
 
           <TouchableOpacity 
-            style={[styles.button, (loading || imageLoading) && styles.disabledbutton]}
+            style={[styles.button, (loading || imageLoading) && styles.buttondisabled]}
             onPress={handleSave}
             disabled={loading || imageLoading}
           >
@@ -281,7 +294,6 @@ const Edit = () => {
     </>
   );
 };
-
 
 const styles = StyleSheet.create({
 
