@@ -17,7 +17,7 @@ from datetime import datetime
 from app import app, db, login_manager
 
 
-from flask import render_template, request, jsonify, send_file, session, send_from_directory, url_for, redirect, g
+from flask import current_app, render_template, request, jsonify, send_file, session, send_from_directory, url_for, redirect, g
 from flask_login import login_user, logout_user, current_user, login_required
 
 from werkzeug.utils import secure_filename
@@ -307,49 +307,7 @@ def user_profile(user_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
-#
-@app.route('/api/v1/users/<int:user_id>/photo', methods=['POST'])
-@login_required
-@requires_auth
-def upload_user_profile_photo(user_id):
-    try:
-        if current_user.id != user_id:
-            return jsonify({"error": "Can only upload photo to your own profile"}), 403
-
-        if 'file' not in request.files:
-            return jsonify({"error": "No file provided"}), 400
-            
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({"error": "No selected file"}), 400
-            
-        if file and allowed_file(file.filename):
-            if current_user.profile_photo:
-                old_filepath = os.path.join(app.config['UPLOAD_FOLDER'], current_user.profile_photo)
-                if os.path.exists(old_filepath):
-                    os.remove(old_filepath)
-            
-            # Save new photo
-            filename = secure_filename(f"user_{user_id}_{file.filename}")
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-            
-            # Update user record
-            current_user.profile_photo = filename
-            db.session.commit()
-            
-            return jsonify({
-                "message": "Profile photo uploaded successfully",
-                "filename": filename,
-                "photo_url": url_for('get_photo', filename=filename, _external=True)
-            }), 200
-            
-        return jsonify({"error": "Invalid file type"}), 400
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
-
+        
 ##
 # Functions for token creation in API's and Web Forms.
 ##
@@ -375,24 +333,118 @@ def generate_token(uid):
     token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
     return token
 
+#
+@app.route('/api/v1/auth/refresh', methods=['POST'])
+def refresh_token():
+    try:
+        refresh_token = request.json.get('refresh_token')
+        if not refresh_token:
+            return jsonify({"error": "Refresh token required"}), 400
+        
+        payload = jwt.decode(
+            refresh_token,
+            app.config['SECRET_KEY'],
+            algorithms=["HS256"]
+        )
+        
+        new_token = generate_token(payload['sub'])
+        
+        return jsonify({
+            "access_token": new_token,
+            "token_type": "Bearer"
+        }), 200
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Refresh token expired"}), 401
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
 ##
 # Functions for image processing
 ##
 
-# API route for serving uploaded photos
+#
 def allowed_file(filename):
+    """Check if file extension is allowed"""
     return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+           filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
 
+@app.route('/api/v1/photos', methods=['POST'])
+@login_required
+def upload_photo():
+    try:
+        # Verify file exists in request
+        if 'file' not in request.files:
+            return jsonify({"error": "No file part"}), 400
+            
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
+        
+        # Verify file type using the config
+        if not allowed_file(file.filename):
+            allowed = ', '.join(current_app.config['ALLOWED_EXTENSIONS'])
+            return jsonify({
+                "error": "Invalid file type",
+                "allowed_extensions": allowed
+            }), 400
+            
+        # Create upload directory if needed
+        os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
+        
+        # Generate secure filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        filename = secure_filename(f"user_{current_user.id}_{timestamp}.{ext}")
+        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+        
+        # Save the file
+        file.save(filepath)
+        print(f"File saved to: {filepath}")  # Debug print
+        
+        # Remove old profile photo if exists
+        if current_user.profile_photo:
+            old_file = os.path.join(current_app.config['UPLOAD_FOLDER'], current_user.profile_photo)
+            if os.path.exists(old_file):
+                os.remove(old_file)
+        
+        # Update user record
+        current_user.profile_photo = filename
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Photo uploaded successfully",
+            "filename": filename,
+            "url": url_for('get_photo', filename=filename, _external=True)
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Upload failed: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            "error": "Upload failed",
+            "details": str(e)
+        }), 500
 
-# API route for serving uploaded photos
-@app.route('/api/v1/photos/<filename>')
+#
+@app.route('/api/v1/photos/<filename>', methods=['GET'])
 def get_photo(filename):
-    return send_from_directory(os.path.join(os.getcwd(), app.config['UPLOAD_FOLDER']), filename)
+    if not os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], filename)):
+        abort(404)
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 ##
 # Functions for error, and request handling.
 ##
+
+#
+@app.route('/debug/config')
+def debug_config():
+    return jsonify({
+        "UPLOAD_FOLDER": current_app.config['UPLOAD_FOLDER'],
+        "ALLOWED_EXTENSIONS": list(current_app.config['ALLOWED_EXTENSIONS'])
+    })
 
 # Error function for form.
 def form_errors(form):

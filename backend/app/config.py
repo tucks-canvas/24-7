@@ -11,15 +11,21 @@ class Config(object):
     DEBUG = False
     SECRET_KEY = os.environ.get('SECRET_KEY')
     
-    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER')
-    if not os.path.exists(UPLOAD_FOLDER):
-        os.makedirs(UPLOAD_FOLDER)
+    # File Uploads
+    UPLOAD_FOLDER = os.path.abspath(os.environ.get('UPLOAD_FOLDER', 'uploads'))
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
+
     
+    # Database
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', '').replace('postgres://', 'postgresql://')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # JWT
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'your-jwt-secret-key')
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
 
+    # Mail
     MAIL_SERVER =  os.environ.get('MAIL_SERVER') 
     MAIL_PORT = 2525
     MAIL_USE_TLS = True
@@ -27,8 +33,16 @@ class Config(object):
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME') 
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD') 
 
+    # CSRF
     WTF_CSRF_ENABLED = False  # Disable completely
     WTF_CSRF_CHECK_DEFAULT = False
 
+    # Security
     SECRET_KEY = os.environ.get('SECRET_KEY')  # Keep this secret!
     SECURITY_PASSWORD_SALT = os.environ.get('SECURITY_PASSWORD_SALT')  # Different from SECRET_KEY
+
+    @classmethod
+    def init_app(cls, app):
+        """Initialize configuration with app instance"""
+        if not os.path.exists(cls.UPLOAD_FOLDER):
+            os.makedirs(cls.UPLOAD_FOLDER, exist_ok=True)

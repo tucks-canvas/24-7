@@ -2,10 +2,12 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 
-export const apiURL = 'http://10.22.168.53:5000'; // Remember to change if at different address or location
+export const apiURL = 'http://10.22.228.97:5000'; // Remember to change if at different address or location
 
-const API_BASE_URL = 'http://10.22.168.53:5000/api/v1'; // Remember to change if at different address or location
+const API_BASE_URL = 'http://10.22.228.97:5000/api/v1'; // Remember to change if at different address or location
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -14,6 +16,25 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Add this helper function
+const refreshAuthToken = async () => {
+  try {
+    const refreshToken = await SecureStore.getItemAsync('refresh_token');
+    if (!refreshToken) throw new Error('No refresh token available');
+    
+    const response = await axios.post(`${apiURL}/api/v1/auth/refresh`, {
+      refresh_token: refreshToken
+    });
+    
+    await SecureStore.setItemAsync('auth_token', response.data.access_token);
+    return response.data.access_token;
+  } catch (error) {
+    await SecureStore.deleteItemAsync('auth_token');
+    await SecureStore.deleteItemAsync('refresh_token');
+    throw error;
+  }
+};
 
 // Declare registerUser
 export const registerUser = async (userData: {
@@ -210,35 +231,49 @@ export const updateUserProfile = async (
 };
 
 // Declare profile photo by user ID
-export const uploadProfilePhoto = async (userId: number, imageUri: string) => {
+export const uploadProfilePhoto = async (imageUri: string) => {
   try {
+    // Get fresh token
     const token = await SecureStore.getItemAsync('auth_token');
-    const formData = new FormData();
-    const filename = imageUri.split('/').pop();
-    const fileType = filename?.split('.').pop();
+    if (!token) throw new Error('Authentication token not found');
+
+    // Create FormData with proper file info
+    const filename = imageUri.split('/').pop() || `photo_${Date.now()}.jpg`;
+    const fileType = filename.split('.').pop()?.toLowerCase() || 'jpg';
     
+    const formData = new FormData();
     formData.append('file', {
       uri: imageUri,
-      name: `profile_${userId}_${Date.now()}.${fileType}`,
-      type: `image/${fileType}`
+      name: filename,
+      type: `image/${fileType}`,
     } as any);
-    
-    const response = await api.post(`/users/${userId}/photo`, formData, {
+
+    console.log('Uploading:', { 
+      uri: imageUri,
+      name: filename,
+      type: `image/${fileType}`
+    });
+
+    const response = await axios.post(`${API_BASE_URL}/photos`, formData, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data'
-      }
+        'Content-Type': 'multipart/form-data',
+      },
+      transformRequest: () => formData,
     });
-    
+
     return {
       success: true,
       data: response.data
     };
   } catch (error: any) {
+    console.error('Upload failed:', {
+      error: error.response?.data || error.message,
+      config: error.config
+    });
     return {
       success: false,
-      error: error.response?.data?.error || 'Photo upload failed',
-      details: error.response?.data?.details || error.message
+      error: error.response?.data?.error || error.message
     };
   }
 };

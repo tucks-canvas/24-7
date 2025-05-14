@@ -5,8 +5,10 @@ import { useRouter } from 'expo-router';
 import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, StatusBar, ImageBackground, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Import View and Storage
+// Import System and Storage
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+import * as FileSystem from 'expo-file-system';
 
 // Import Image Content
 import * as ImagePicker from 'expo-image-picker';
@@ -81,57 +83,32 @@ const Edit = () => {
 
   const handleImagePick = async () => {
     try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (!permissionResult.granted) {
-        Alert.alert('Permission required', 'Please allow access to your photos');
-        return;
-      }
-
+      // 1. Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.7,
+        quality: 0.8,
       });
 
-      if (!result.canceled) {
-        setImageLoading(true);
+      if (result.canceled || !result.assets?.[0]?.uri) return;
 
-        const manipulatedImage = await manipulateAsync(
-          result.assets[0].uri,
-          [{ resize: { width: 500, height: 500 } }],
-          { compress: 0.7, format: SaveFormat.JPEG }
-        );
-        
-        if (!userId) throw new Error('User ID not available');
-        const uploadResult = await uploadProfilePhoto(userId, manipulatedImage.uri);
-        
-        if (uploadResult.success) {
-          setProfileImage({ uri: manipulatedImage.uri });
-        
-          const userJson = await AsyncStorage.getItem('user');
-        
-          if (userJson) {
-            const user = JSON.parse(userJson);
-            user.profile_photo = uploadResult.data.filename;
-            await AsyncStorage.setItem('user', JSON.stringify(user));
-          }
-        } 
-        else 
-        {
-          Alert.alert('Error', uploadResult.error || 'Failed to upload photo');
-        }
+      // 2. Create a permanent copy of the file
+      const permanentPath = `${FileSystem.cacheDirectory}${result.assets[0].uri.split('/').pop()}`;
+      
+      await FileSystem.copyAsync({
+        from: result.assets[0].uri,
+        to: permanentPath,
+      });
+
+      // 3. Now upload from the permanent location
+      const uploadResult = await uploadProfilePhoto(permanentPath);
+      
+      if (uploadResult.success) {
+        // Update UI and local storage
       }
-    } 
-    catch (error) 
-    {
-      console.error('Image picker error:', error);
-      Alert.alert('Error', error.message || 'Failed to select image');
-    } 
-    finally 
-    {
-      setImageLoading(false);
+    } catch (error) {
+      console.error('Error:', error);
     }
   };
 
@@ -233,6 +210,18 @@ const Edit = () => {
               </TouchableOpacity>
             </View>
           </View>
+
+          <TouchableOpacity 
+            style={styles.photo}
+            onPress={handleImagePick}
+            disabled={imageLoading}
+          >
+            <Image
+              source={icons.canvas}
+              style={styles.smlicon}
+              tintColor={colors.blue}
+            />
+          </TouchableOpacity>
 
           <View style={styles.textfields}>
             <View style={styles.textfield}>

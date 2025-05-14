@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Import Icons and Images 
 import { icons, images } from '../../constants';
 import colors from '../../constants/colors';
-import { getUserProfile, logoutUser } from '../../src/services/api';
+import { getUserProfile, logoutUser, apiURL } from '../../src/services/api';
 
 const Profile = () => {
   const router = useRouter();
