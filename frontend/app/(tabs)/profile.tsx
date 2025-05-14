@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 // Import React-Native Content 
 import { View, Text, Image, StyleSheet, TouchableOpacity, StatusBar, ImageBackground, Alert, ActivityIndicator } from 'react-native';
@@ -29,46 +29,48 @@ const Profile = () => {
     profile_photo: images.profile
   });
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      setLoading(true);
-      try {
-        // First get the stored user data
-        const userJson = await AsyncStorage.getItem('user');
-        if (!userJson) {
-          throw new Error('No user data found');
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadProfile = async () => {
+        setLoading(true);
+        try {
+          // First get the stored user data
+          const userJson = await AsyncStorage.getItem('user');
+          if (!userJson) {
+            throw new Error('No user data found');
+          }
+          
+          const storedUser = JSON.parse(userJson);
+          if (!storedUser?.id) {
+            throw new Error('User ID not found in stored data');
+          }
+          
+          setUserId(storedUser.id);
+          
+          // Then fetch the profile
+          const profile = await getUserProfile(storedUser.id);
+          
+          setUser({
+            username: profile.username || storedUser.username || 'Anonymous',
+            firstname: profile.firstname || storedUser.firstname || '',
+            lastname: profile.lastname || storedUser.lastname || '',
+            location: profile.location || storedUser.location || 'No location set',
+            profile_photo: profile.profile_photo 
+              ? { uri: `${apiURL}/photos/${profile.profile_photo}` } 
+              : images.profile
+          });
+          
+        } catch (error) {
+          console.error('Profile load error:', error);
+          Alert.alert('Error', error.message || 'Failed to load profile');
+        } finally {
+          setLoading(false);
         }
-        
-        const storedUser = JSON.parse(userJson);
-        if (!storedUser?.id) {
-          throw new Error('User ID not found in stored data');
-        }
-        
-        setUserId(storedUser.id);
-        
-        // Then fetch the profile
-        const profile = await getUserProfile(storedUser.id);
-        
-        setUser({
-          username: profile.username || storedUser.username || 'Anonymous',
-          firstname: profile.firstname || storedUser.firstname || '',
-          lastname: profile.lastname || storedUser.lastname || '',
-          location: profile.location || storedUser.location || 'No location set',
-          profile_photo: profile.profile_photo 
-            ? { uri: profile.profile_photo } 
-            : images.profile
-        });
-        
-      } catch (error) {
-        console.error('Profile load error:', error);
-        Alert.alert('Error', error.message || 'Failed to load profile');
-      } finally {
-        setLoading(false);
-      }
-    };
+      };
 
-    loadProfile();
-  }, []);
+      loadProfile();
+    }, []) // Empty dependency array means this runs only on focus
+  );
 
   const handleLogout = async () => {
     setLoading(true);

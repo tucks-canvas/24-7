@@ -262,14 +262,38 @@ def load_user(user_id):
 # Functions for user management
 ##
 
-@app.route('/api/v1/users/<int:user_id>', methods=['GET'])
+@app.route('/api/v1/users/<int:user_id>', methods=['GET', 'PATCH'])
 @login_required
-def get_user_profile(user_id):
+def user_profile(user_id):
     try:
         # Verify the requested user matches the logged-in user
         if current_user.id != user_id:
             return jsonify({"error": "Unauthorized access"}), 403
             
+        if request.method == 'PATCH':
+            data = request.get_json()
+            
+            # Update only the fields that are provided
+            if 'firstname' in data:
+                current_user.firstname = data['firstname']
+            if 'lastname' in data:
+                current_user.lastname = data['lastname']
+            if 'location' in data:
+                current_user.location = data['location']
+                
+            db.session.commit()
+            
+            return jsonify({
+                "message": "Profile updated successfully",
+                "user": {
+                    "id": current_user.id,
+                    "firstname": current_user.firstname,
+                    "lastname": current_user.lastname,
+                    "location": current_user.location
+                }
+            }), 200
+            
+        # Existing GET method implementation
         return jsonify({
             "id": current_user.id,
             "username": current_user.username,
@@ -281,6 +305,7 @@ def get_user_profile(user_id):
         }), 200
         
     except Exception as e:
+        db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 #

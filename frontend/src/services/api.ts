@@ -209,7 +209,7 @@ export const updateUserProfile = async (
   }
 };
 
-// Upload profile photo by user ID
+// Declare profile photo by user ID
 export const uploadProfilePhoto = async (userId: number, imageUri: string) => {
   try {
     const token = await SecureStore.getItemAsync('auth_token');

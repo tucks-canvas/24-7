@@ -38,13 +38,14 @@ const Edit = () => {
       setLoading(true);
 
       try {
-        // First get the stored user data
         const userJson = await AsyncStorage.getItem('user');
+
         if (!userJson) {
           throw new Error('No user data found');
         }
         
         const storedUser = JSON.parse(userJson);
+
         if (!storedUser?.id) {
           throw new Error('User ID not found in stored data');
         }
@@ -96,33 +97,40 @@ const Edit = () => {
 
       if (!result.canceled) {
         setImageLoading(true);
-        // Compress and resize the image
+
         const manipulatedImage = await manipulateAsync(
           result.assets[0].uri,
           [{ resize: { width: 500, height: 500 } }],
           { compress: 0.7, format: SaveFormat.JPEG }
         );
         
-        // Upload the image
         if (!userId) throw new Error('User ID not available');
         const uploadResult = await uploadProfilePhoto(userId, manipulatedImage.uri);
         
         if (uploadResult.success) {
           setProfileImage({ uri: manipulatedImage.uri });
+        
           const userJson = await AsyncStorage.getItem('user');
+        
           if (userJson) {
             const user = JSON.parse(userJson);
             user.profile_photo = uploadResult.data.filename;
             await AsyncStorage.setItem('user', JSON.stringify(user));
           }
-        } else {
+        } 
+        else 
+        {
           Alert.alert('Error', uploadResult.error || 'Failed to upload photo');
         }
       }
-    } catch (error) {
+    } 
+    catch (error) 
+    {
       console.error('Image picker error:', error);
       Alert.alert('Error', error.message || 'Failed to select image');
-    } finally {
+    } 
+    finally 
+    {
       setImageLoading(false);
     }
   };
@@ -130,6 +138,7 @@ const Edit = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
+      
       if (!userId) throw new Error('User ID not available');
       
       const result = await updateUserProfile(userId, {
@@ -139,8 +148,8 @@ const Edit = () => {
       });
       
       if (result.success) {
-        // Update local storage
         const userJson = await AsyncStorage.getItem('user');
+        
         if (userJson) {
           const updatedUser = {
             ...JSON.parse(userJson),
@@ -152,12 +161,18 @@ const Edit = () => {
         }
         Alert.alert('Success', 'Profile updated successfully');
         router.back();
-      } else {
+      } 
+      else 
+      {
         Alert.alert('Error', result.error || 'Failed to update profile');
       }
-    } catch (error) {
+    } 
+    catch (error) 
+    {
       Alert.alert('Error', error.message || 'An unexpected error occurred');
-    } finally {
+    } 
+    finally 
+    {
       setLoading(false);
     }
   };
