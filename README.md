@@ -1,50 +1,195 @@
-# Welcome to your Expo app 👋
+# 24-7 - Autocare
+# Description:
+Autocare is a full-service automotive platform that empowers users to access a wide range of vehicle services, including parts purchasing, vehicle rentals, mechanical repairs (battery, tires, oil changes), detailing services, and roadside recovery. 
+The application delivers an optimised user experience through intuitive navigation, secure authentication flows, intelligent service booking systems, advanced search filtering, comprehensive profile management, and location-aware workshop discovery.
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+# Demo: 
+Insert demo video here.
 
-## Get started
+# Screens: 
+a. Authentication
+	i. Sign (sign.tsx)
+	   Purpose: Handles both user login and registration.
 
-1. Install dependencies
+	   Features:
+	   a. Toggle between login and signup views.
+	   b. Form validation for email, username, and password.
+	   c. Password visibility toggle.
+	   d. Social login buttons (Facebook, Google - placeholder).
+	   e. Navigation to "Forgot Password" screen.
+	   f. Error handling and loading states.
 
-   ```bash
-   npm install
-   ```
+	ii. Code (code.tsx)
+		Purpose: Verifies the 4-digit reset code sent to the user's email.
 
-2. Start the app
+		Features:
+		a. Input fields for each digit of the code (auto-focus and navigation between fields).
+		b. Resend code functionality.
+		c. Validation and submission to proceed to password reset.
+		d. Error handling and loading states.
 
-   ```bash
-   npx expo start
-   ```
+	iii. New (new.tsx)
+		 Purpose: Allows users to set a new password after verification.
 
-In the output, you'll find options to open the app in a
+		 Features:
+		 a. Input fields for new password and confirmation.
+		 b. Password visibility toggle.
+		 c. Validation for password matching and length.
+		 d. Submission to update password.
+		 e. Error handling and loading states.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+	iv. Forgot (forgot.tsx)
+		Purpose: Initiates the password reset process.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+		Features:
+		a. Email input for sending a reset code.
+		b. Navigation to the "Code" screen upon successful submission.
+		c. Error handling and loading states.
 
-## Get a fresh project
+b. Onboarding Screens:
+	i. Loading (loading.tsx)
+	   Purpose: Displays a splash screen while the app initializes or authenticates the user.
 
-When you're ready, run:
+	ii. Onboarding (onboarding.tsx)
+	    Purpose: Introduces the app's features to new users through a series of slides or interactive screens.
 
-```bash
-npm run reset-project
-```
+		Features:
+		a. Seperate of screens by three-slide carousel.
+		b. Pagination of the three-slide carousel.
+		c. Navigation through three-slide carousel
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+c. Services Screens:
+	i. Service (service.tsx)
+		Purpose: Displays detailed information about a selected service.
 
-## Learn more
+		Features:
+		a. Service image, title, price, and description.
+		b. User ratings and usage statistics.
+		c. Checkbox for additional options (e.g., "I need parts for my vehicle").
+		d. Emergency vehicle information section (location, model).
+		e. "Book Now" button to proceed to booking.
 
-To learn more about developing your project with Expo, look at the following resources:
+d. System Screens:
+	i. Edit (edit.tsx)
+	   Purpose: Allows users to edit their profile information.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+	   Features:
+	   a. Profile photo upload/edit functionality.
+	   b. Input fields for first name, last name, username (non-editable), and location.
+	   c. Save button to update profile data.
+	   d. Error handling and loading states for photo upload and data submission.
 
-## Join the community
+e. Tab Screens:
+	i. Home (home.tsx)
+	   Purpose: Main screen displaying services, rentals, and selling options.
 
-Join our community of developers creating universal apps.
+	   Features:
+	   a. Search functionality to filter services.
+	   b. Category tabs (Services, Rent, Selling).
+	   c. Scrollable list of services with images, titles, and descriptions.
+	   d. Navigation to service details
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+	ii. History (Present but Not Implemented)
+		Purpose: Would display the user's past service bookings or transactions.
+
+		Features: Not implemented in the provided code.
+
+	iii. Profile (profile.tsx)
+		 Purpose: Displays user profile and settings.
+
+		 Features:
+		 a. Profile photo, username, and location.
+		 b. Edit profile button (navigates to "Edit" screen).
+		 c. Menu options for history, notifications, settings, support, and logout.
+		 d. Toggle for enabling/disabling notifications.
+		 e. Logout functionality with confirmation.
+
+	iv. Workshop (Present but Not Implemented)
+		Purpose: Would display workshop-related information or services.
+
+		Features: Not implemented in the provided code.
+
+
+# How to operate it?
+
+### Note Briefly: These instructions were made under the assumption you are:
+
+1. Running your code on a windows device
+2. Using VSCode 
+3. Have GIT already installed.
+
+# Git
+1. In powershell, run git clone 'git clone 'https://github.com/tucks-canvas/24-7.git'.
+2. Navigate to project and run in VSCode
+
+# Frontend
+1. NPM and Node.js
+   a. Download and install npm (https://github.com/coreybutler/nvm-windows), allow all recommended permissions - especially PATH related conditions.
+   b. Download and install node.js (https://nodejs.org/en/download), all all recommended permissions - especially PATH related conditions.
+   c. In powershell, using nvm -v, node -v, and npm -v, check if all were installed.
+   d. Thereafter give them permissions on your system using 'Set-ExecutionPolicy RemoteSigned -Scope CurrentUser'
+   
+2. Emulator
+   a. Download Android Studio Emulator
+   b. After installation is finished navigate to Virtual Device Manager, and install the Google API versions of Android Version, you prefer. I recommend 29 and 30.
+   c. To prevent errors due to your graphics card, make sure to go to advance settings in the device creation, and change graphics to 'Software'. Reduce cores to 4, and RAM to 2 - 4.
+   d. Once that's done navigate to you environmental variables:
+      a. Under System Variables, click PATH, press Edit and add: 
+	     C:\Users\<your-username>\AppData\Local\Android\Sdk\platform-tools
+		 C:\Users\<your-username>\AppData\Local\Android\Sdk\emulator
+	  b. Under User Variables, click new and add: 
+	     i. name: ANDROID_HOME; value: C:\Users\<your-username>\AppData\Local\Android\Sdk.
+		 ii. name: ANDROID_SDK_ROOT; value: C:\Users\<your-username>\AppData\Local\Android\Sdk.
+
+
+# Backend
+1. Python
+   a. Install python in order to get your project started (https://www.python.org/downloads/release/python-3133/). Ensure python is allowed to create a path.
+   b. Navigate to backend by typing in 'cd backend'
+   c. Create an environment for installation using the following prompts: 
+      python -m venv venv
+	  .\venv\Scripts\activate
+   d. Run the requirements file using 'pip install -r requirements.txt'
+   e. (If necessary upgrade using) python.exe -m pip install --upgrade pip
+     
+2. Database
+   i. PostgreSQL
+   a. Install PostgreSQL (https://www.enterprisedb.com/downloads/postgres-postgresql-downloads), ensure to click all the items it suggests stackbuilder etc. Once the installation is complete and the stackbuilder  
+      builder loads. Select:
+		1. pgAdmin 4
+		2. PostGIS
+		3. PL/Python
+
+		Drivers:
+		1. ODBC Driver
+		2. psqlODBC
+	b. Once your installation is finished, create a user '24-7_user' by right-clicking on Login/User Role, and pressing Create > Login/User Role, give it password '247project'.
+	   For testing purposes select all permissions under 'Privileges'.
+	c. Thereafter create a database by right-clicking Database and pressing Create > Database.
+    
+	ii. Terminal
+    a. 	Navigate to your backend using 'cd backend', if you haven't already, and run the following functions: 
+	    flask db init
+		flask db migrate -m "Create tables"
+		flask db upgrade
+			
+3. SMTP:
+   a. Using an smtp (my preferred one - https://mailtrap.io/home), navigate to sandbox, create an inbox, click on it, and retrieve the following:
+      Host, Port, Username, Password, Auth, TLS - Hover to copy
+   b. Therafter update the .env in your backend folder.
+
+# Running
+1. Backend
+   a. Once your done:
+   i. Navigate to cd backend if you haven't already.
+   ii. Enter:
+       python -m venv venv
+	   .\venv\Scripts\activate
+   iii. By pressing ctrl + j, then the add button at the top right corner, run the python file using 'flask run' in the terminal 
+
+
+2. Frontend
+   a. Once your done:
+   i. Press the add button once more, and navigate to cd frontend.
+   ii. Enter 'npx expo start'
+   iii. Ensure the Android Emulator Device you choosen is running, then press a to load the application to the device  

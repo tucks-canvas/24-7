@@ -34,6 +34,8 @@ import lock from "../assets/icons/lock.png";
 import logout from "../assets/icons/logout.png";
 import edit from "../assets/icons/edit.png";
 import canvas from "../assets/icons/canvas.png";
+import active from "../assets/icons/active.png";
+import inactive from "../assets/icons/inactive.png";
 
 export default { 
     google,
@@ -72,4 +74,6 @@ export default {
     logout,
     edit,
     canvas,
+    inactive,
+    active
 };

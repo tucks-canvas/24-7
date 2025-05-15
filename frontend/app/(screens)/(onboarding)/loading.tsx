@@ -1,33 +1,46 @@
-import React, { useState } from 'react';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import React from 'react';
 
-// Import Supported Contents
-import { View, Text, Image, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
-import { TextInput } from 'react-native-gesture-handler';
+// Import React-Native Content
+import { View, Image, StyleSheet } from 'react-native';
 
 // Import View and Storage
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Import Icons, Images and Colors
-import { icons, images } from '../../../constants';
+// Import Icons, Images, and Colors
+import { images } from '../../../constants';
 import colors from '../../../constants/colors';
 
 const Loading = () => {
-
   return (
-    <>
-      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />  
-      
-      <SafeAreaView style={styles.safeArea}>
-          <View style={styles.container}>
-          </View>
-      </SafeAreaView>
-    </>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Image
+          source={images.logo} // Replace with your logo/image
+          style={styles.image}
+          resizeMode="contain"
+        />
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.blue, // Or your preferred color
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  container: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  image: {
+    width: 200,
+    height: 200,
+  },
 });
 
 export default Loading;
