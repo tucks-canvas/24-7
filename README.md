@@ -5,7 +5,7 @@ Autocare is a full-service automotive platform that empowers users to access a w
 The application delivers an optimised user experience through intuitive navigation, secure authentication flows, intelligent service booking systems, advanced search filtering, comprehensive profile management, and location-aware workshop discovery.
 
 # Demo: 
-Insert demo video here.
+![Demo Video](demo.mp4)
 
 # Screens: 
 1. Authentication:
@@ -193,4 +193,5 @@ Insert demo video here.
    a. Once your done:
    i. Press the add button once more, and navigate to cd frontend.
    ii. Enter 'npx expo start'
-   iii. Ensure the Android Emulator Device you choosen is running, then press a to load the application to the device  
+   iii. Ensure the Android Emulator Device you choosen is running, then press a to load the application to the device
+   iv. Change the IP Address in api.ts. (IMPORTANT!)
