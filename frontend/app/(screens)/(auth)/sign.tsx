@@ -90,7 +90,6 @@ const Sign = () => {
     setErrors(signupErrors);
     
     try {
-      // Validate required fields
       if (!signupData.username || !signupData.email || !signupData.password) {
         Alert.alert('Error', 'All fields are required');
         return;

@@ -224,7 +224,7 @@ def request_reset():
 def verify_code():
     try:
         email = request.json.get('email')
-        token = request.json.get('token')  # The 4-digit code
+        token = request.json.get('token')
         
         if not email or not token:
             return jsonify({"error": "Email and token are required"}), 400
@@ -239,11 +239,10 @@ def verify_code():
         if user.reset_code_expiration < datetime.utcnow():
             return jsonify({"error": "Code expired"}), 400
             
-        # Generate reset token with 10 minute expiration
         expiration = datetime.utcnow() + timedelta(minutes=10)
         payload = {
             'user_id': user.id,
-            'exp': expiration.timestamp()  # Using timestamp
+            'exp': expiration.timestamp()
         }
         
         s = Serializer(current_app.config['SECRET_KEY'])
@@ -320,14 +319,12 @@ def load_user(user_id):
 @login_required
 def user_profile(user_id):
     try:
-        # Verify the requested user matches the logged-in user
         if current_user.id != user_id:
             return jsonify({"error": "Unauthorized access"}), 403
             
         if request.method == 'PATCH':
             data = request.get_json()
             
-            # Update only the fields that are provided
             if 'firstname' in data:
                 current_user.firstname = data['firstname']
             if 'lastname' in data:
@@ -347,7 +344,6 @@ def user_profile(user_id):
                 }
             }), 200
             
-        # Existing GET method implementation
         return jsonify({
             "id": current_user.id,
             "username": current_user.username,
@@ -382,9 +378,9 @@ def generate_reset_token(user_id):
     try:
         payload = {
             'user_id': user_id,
-            'exp': datetime.utcnow() + timedelta(minutes=30),  # 30 minute expiration
+            'exp': datetime.utcnow() + timedelta(minutes=30),
             'iat': datetime.utcnow(),
-            'purpose': 'password_reset'  # Specific purpose for this token
+            'purpose': 'password_reset'
         }
         return jwt.encode(
             payload,
@@ -467,7 +463,6 @@ def upload_photo():
         current_user.profile_photo = filename
         db.session.commit()
         
-        # Return URL with consistent /api/v1/photos/ prefix
         photo_url = url_for('get_photo', filename=filename, _external=True)
         return jsonify({
             "message": "Photo uploaded successfully",

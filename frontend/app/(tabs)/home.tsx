@@ -144,14 +144,12 @@ const Home = () => {
 
   const [selectedCategory, setSelectedCategory] = useState('Services');
 
-  const [searchQuery, setSearchQuery] = useState(''); // Add this state
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Filter services based on search query
   const filteredServices = services.filter(service => 
     service.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Filter rentings based on search query
   const filteredRentings = rentings.filter(renting => 
     renting.title.toLowerCase().includes(searchQuery.toLowerCase())
   );

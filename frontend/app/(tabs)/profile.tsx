@@ -63,7 +63,6 @@ const Profile = () => {
           
           const profile = await getUserProfile(storedUser.id);
           
-          // Handle photo URL with cache buster
           let photoUrl = null;
           if (profile.profile_photo) {
             photoUrl = {

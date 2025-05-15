@@ -17,8 +17,8 @@ const Loading = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      router.replace('/onboarding'); // Using replace instead of push to prevent going back
-    }, 5000); // 5 second timeout
+      router.replace('/onboarding'); 
+    }, 5000); 
 
     return () => clearTimeout(timer);
   }, []);

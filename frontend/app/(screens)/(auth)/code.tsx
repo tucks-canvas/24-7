@@ -14,16 +14,13 @@ const Code = () => {
   const router = useRouter();
   const { email } = useLocalSearchParams();
   
-  // Create refs array for each input
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const [code, setCode] = useState(['', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
-  // Initialize refs array
   useEffect(() => {
     inputRefs.current = inputRefs.current.slice(0, 4);
-    // Auto-focus first input on mount
     inputRefs.current[0]?.focus();
   }, []);
 
@@ -53,32 +50,27 @@ const Code = () => {
   };
 
   const handleCodeChange = (text: string, index: number) => {
-    // Only allow numeric input
     const numericText = text.replace(/[^0-9]/g, '');
     const newCode = [...code];
     newCode[index] = numericText;
     setCode(newCode);
     
-    // Auto-focus next input if a digit was entered
     if (numericText && index < 3) {
       inputRefs.current[index + 1]?.focus();
     }
     
-    // Auto-submit if last digit entered
     if (index === 3 && numericText) {
       handleVerify();
     }
   };
 
   const handleKeyPress = ({ nativeEvent }: any, index: number) => {
-    // Handle backspace to move to previous input
     if (nativeEvent.key === 'Backspace' && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
   const handleResend = async () => {
-    // Implement resend logic here if needed
     Alert.alert('Code Resent', 'A new code has been sent to your email');
   };
 
@@ -112,8 +104,8 @@ const Code = () => {
               placeholderTextColor={colors.grey}
               keyboardType="number-pad"
               maxLength={1}
-              textContentType="oneTimeCode" // iOS autofill
-              autoComplete="one-time-code" // Android autofill
+              textContentType="oneTimeCode"
+              autoComplete="one-time-code"
             />
           ))}
         </View>
