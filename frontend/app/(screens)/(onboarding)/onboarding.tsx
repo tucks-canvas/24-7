@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
 
 // Import React-Native Content
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 
 // Import View and Storage
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,77 +11,82 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { images, icons } from '../../../constants';
 import colors from '../../../constants/colors';
 
-const onboardingSlides = [
+const onboarding = [
   {
     id: 1,
     image: images.onboarding1,
-    title: 'Find Services Easily',
-    subtitle: 'Discover a wide range of vehicle services at your fingertips',
+    text: 'Have any Problems with your car?',
+    subtext: 'If you have any problems with your car please contact us. we provide all vehicle',
   },
   {
     id: 2,
     image: images.onboarding2,
-    title: 'Quick Assistance',
-    subtitle: 'Get help whenever you need it, 24/7 service availability',
+    text: 'Rent a Vehicle Easily Only Here!',
+    subtext: 'If you have any problems with your car please contact us. we provide all vehicle',
   },
   {
     id: 3,
     image: images.onboarding3,
-    title: 'Ready to Start?',
-    subtitle: 'Join thousands of satisfied customers today',
+    text: 'Order Parts for your car',
+    subtext: 'If you have any problems with your car please contact us. we provide all vehicle',
   },
 ];
 
 const Onboarding = () => {
   const router = useRouter();
+
   const [currentSlide, setCurrentSlide] = useState(0);
 
   const goToNextSlide = () => {
-    if (currentSlide < onboardingSlides.length - 1) {
+    if (currentSlide < onboarding.length - 1) {
       setCurrentSlide(currentSlide + 1);
-    } else {
+    } 
+    else 
+    {
       router.replace('/sign');
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Image
-          source={onboardingSlides[currentSlide].image}
-          style={styles.image}
-          resizeMode="contain"
-        />
-        
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>{onboardingSlides[currentSlide].title}</Text>
-          <Text style={styles.subtitle}>{onboardingSlides[currentSlide].subtitle}</Text>
-        </View>
+    <>
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />    
 
-        <View style={styles.pagination}>
-          {onboardingSlides.map((_, index) => (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <View style={styles.header}>
             <Image
-              key={index}
-              source={currentSlide === index ? icons.active : icons.inactive}
-              style={styles.paginationIcon}
+              source={onboarding[currentSlide].image}
+              style={styles.image}
+              resizeMode="contain"
             />
-          ))}
-        </View>
+          </View>        
+          
+          <View style={styles.body}>
+            <Text style={styles.text}>{onboarding[currentSlide].text}</Text>
+            <Text style={styles.subtext}>{onboarding[currentSlide].subtext}</Text>
+          </View>
 
-        <TouchableOpacity style={styles.nextButton} onPress={goToNextSlide}>
-          <Text style={styles.buttonText}>
-            {currentSlide === onboardingSlides.length - 1 ? 'Get Started' : 'Next'}
-          </Text>
-          {currentSlide < onboardingSlides.length - 1 && (
-            <Image
-              source={icons.arrowRight}
-              style={styles.arrowIcon}
-              tintColor={colors.white}
-            />
-          )}
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+          <View style={styles.pagination}>
+            {onboarding.map((_, index) => (
+              <Image
+                key={index}
+                source={currentSlide === index ? icons.active : icons.inactive}
+                style={styles.smlicon}
+              />
+            ))}
+          </View>
+
+          <TouchableOpacity 
+            style={styles.button} 
+            onPress={goToNextSlide}
+          >
+            <Text style={styles.buttontext}>
+              {currentSlide === onboarding.length - 1 ? 'Get Started' : 'Next'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </>
   );
 };
 
@@ -90,29 +95,42 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
+
   container: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
   },
-  image: {
-    width: '100%',
-    height: 300,
-    marginBottom: 40,
+
+  /* Header */
+
+  header: {
+    width: 700,
+    height: 550,
+    marginBottom: 20,
+    bottom: 70,
   },
-  textContainer: {
+
+  /* Body */
+
+  body: {
+    width: '85%',
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 20,
+    bottom: 30,
   },
-  title: {
+  
+  text: {
     fontSize: 24,
     fontFamily: 'SF-Pro-Display-Bold',
     color: colors.black,
     marginBottom: 16,
     textAlign: 'center',
   },
-  subtitle: {
+
+  subtext: {
     fontSize: 16,
     fontFamily: 'SF-Pro-Display-Regular',
     color: colors.grey,
@@ -120,36 +138,54 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingHorizontal: 20,
   },
+
+  /* Pagination */
+
   pagination: {
     flexDirection: 'row',
     marginBottom: 40,
     alignItems: 'center',
+    bottom: 20,
   },
-  paginationIcon: {
-    width: 10,  // Adjust size as needed
-    height: 10, // Adjust size as needed
-    marginHorizontal: 4,
-    resizeMode: 'contain',
-  },
-  nextButton: {
-    backgroundColor: colors.blue,
+
+  /* Button */
+  
+  button: {
+    flexDirection: 'row',
+    backgroundColor: colors.red,
     paddingVertical: 16,
     paddingHorizontal: 32,
-    borderRadius: 30,
-    flexDirection: 'row',
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonText: {
+
+  buttontext: {
     color: colors.white,
     fontSize: 16,
     fontFamily: 'SF-Pro-Display-Medium',
-    marginRight: 8,
   },
-  arrowIcon: {
+  
+  /* Icons and Images */
+
+  icon: {
     width: 16,
     height: 16,
   },
+
+  smlicon: {
+    width: 10, 
+    height: 10,
+    marginHorizontal: 4,
+    resizeMode: 'contain',
+  },
+
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+
+
 });
 
 export default Onboarding;

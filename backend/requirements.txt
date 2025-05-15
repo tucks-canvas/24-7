@@ -1,37 +1,46 @@
-# Core Flask
+# Core Flask & Extensions
 Flask==2.3.2
 Flask-Cors==3.0.10
 Flask-Login==0.6.2
 Flask-WTF==1.1.1
 Flask-Migrate==4.0.5
+flask-mail==0.9.1
+Flask-JWT-Extended==4.5.2
 
 # Database
 Flask-SQLAlchemy==3.0.3
 SQLAlchemy==2.0.19
-psycopg2-binary==2.9.7  # PostgreSQL adapter
+psycopg2-binary==2.9.7
+alembic==1.12.0  # Explicitly added for migrations
 
-# Authentication & Security
+# Security & Authentication
 PyJWT==2.8.0
-Flask-JWT-Extended==4.5.2
-Werkzeug==2.3.7  # Includes password hashing
-bcrypt==4.0.1  # Alternative password hashing
+itsdangerous==2.1.2
+Werkzeug==2.3.7
+bcrypt==4.0.1
+email-validator==2.0.0.post2
+passlib==1.7.4  # Additional password hashing
 
-# Environment & Configuration
+# File Processing
+Pillow==10.0.1  # Image handling
+python-magic==0.4.27  # File type verification
+
+# Environment & Config
 python-dotenv==1.0.0
+python-dateutil==2.8.2  # Date parsing
 
 # API Development
-Flask-RESTful==0.3.10  # Optional for REST API structure
-marshmallow==3.19.0  # Optional for serialization
-
-# File Uploads
-Pillow==10.0.1  # For image processing
+Flask-RESTful==0.3.10  # Optional
+marshmallow==3.19.0  # Serialization
+marshmallow-sqlalchemy==0.29.0  # DB integration
 
 # Development & Testing
 pytest==7.4.0
 Flask-Testing==0.8.1
 requests==2.31.0
+pytest-cov==4.1.0  # Test coverage
+factory-boy==3.3.0  # Test fixtures
 
 # Production
 gunicorn==21.2.0
-
-
+gevent==23.9.1  # Async worker for gunicorn

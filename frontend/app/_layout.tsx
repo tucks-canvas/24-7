@@ -16,6 +16,8 @@ export default function RootLayout() {
         "SF-Pro-Display-Semibold": require("../assets/fonts/SF-Pro-Display-Semibold.ttf"),
         "SF-Pro-Display-Thin": require("../assets/fonts/SF-Pro-Display-Thin.ttf"),
         "SF-Pro-Display-Ultralight": require("../assets/fonts/SF-Pro-Display-Ultralight.ttf"),
+        "SF-Pro-Display-BlackItalic": require("../assets/fonts/SF-Pro-Display-BlackItalic.ttf"),
+        "SF-Pro-Display-HeavyItalic": require("../assets/fonts/SF-Pro-Display-HeavyItalic.ttf"),
     });
 
     useEffect(() => {

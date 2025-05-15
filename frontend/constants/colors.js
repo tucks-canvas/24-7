@@ -14,6 +14,7 @@ const colors = {
     blue: '#1A202F',
     gold: '#FFB23F',
     lightblue: '#386DF3',
+    yellow: '#FFB23F',
 };
 
 export default colors;

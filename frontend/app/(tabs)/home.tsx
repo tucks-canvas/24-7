@@ -166,7 +166,7 @@ const Home = () => {
                 <View style={styles.headercontent}>
                     <TouchableOpacity style={styles.headerimage}>
                         <Image
-                            source={images.image1}
+                            source={images.profile1}
                             style={styles.lrgimage}
                         />
                     </TouchableOpacity>
