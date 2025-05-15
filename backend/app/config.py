@@ -34,15 +34,20 @@ class Config(object):
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD') 
 
     # CSRF
-    WTF_CSRF_ENABLED = False  # Disable completely
+    WTF_CSRF_ENABLED = False 
     WTF_CSRF_CHECK_DEFAULT = False
 
     # Security
-    SECRET_KEY = os.environ.get('SECRET_KEY')  # Keep this secret!
-    SECURITY_PASSWORD_SALT = os.environ.get('SECURITY_PASSWORD_SALT')  # Different from SECRET_KEY
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    SECURITY_PASSWORD_SALT = os.environ.get('SECURITY_PASSWORD_SALT')
 
     @classmethod
     def init_app(cls, app):
         """Initialize configuration with app instance"""
         if not os.path.exists(cls.UPLOAD_FOLDER):
             os.makedirs(cls.UPLOAD_FOLDER, exist_ok=True)
+
+    @classmethod
+    def ensure_upload_folder(cls):
+        os.makedirs(cls.UPLOAD_FOLDER, exist_ok=True)
+        os.chmod(cls.UPLOAD_FOLDER, 0o755)

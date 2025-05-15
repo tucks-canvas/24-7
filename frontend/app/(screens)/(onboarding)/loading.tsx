@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { icons, images } from '../../../constants';
 import colors from '../../../constants/colors';
 
-const Book = () => {
+const Loading = () => {
 
   return (
     <>
@@ -30,4 +30,4 @@ const Book = () => {
 const styles = StyleSheet.create({
 });
 
-export default Book;
+export default Loading;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 // Import React-Native Content 
 import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, StatusBar, ImageBackground, Alert, ActivityIndicator } from 'react-native';
@@ -23,67 +23,23 @@ const Edit = () => {
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
+
   const [imageLoading, setImageLoading] = useState(false);
-  const [profileImage, setProfileImage] = useState(null);
+  const [profileImage, setProfileImage] = useState<{uri: string} | null>(null);
   
   const [userId, setUserId] = useState<number | null>(null);
-  const [formData, setFormData] = useState({
+  const [user, setUser] = useState({
     firstname: '',
     lastname: '',
     username: '',
     location: '',
-    profile_photo: images.profile
+    profile_photo: null
   });
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      setLoading(true);
-
-      try {
-        const userJson = await AsyncStorage.getItem('user');
-
-        if (!userJson) {
-          throw new Error('No user data found');
-        }
-        
-        const storedUser = JSON.parse(userJson);
-
-        if (!storedUser?.id) {
-          throw new Error('User ID not found in stored data');
-        }
-        
-        setUserId(storedUser.id);
-        
-        const userData = await getUserProfile(storedUser.id);
-        
-        setFormData({
-          firstname: userData.firstname || '',
-          lastname: userData.lastname || '',
-          username: userData.username || '',
-          location: userData.location || '',
-          profile_photo: userData.profile_photo || images.profile
-        });
-        
-        if (userData.profile_photo) {
-          setProfileImage({ uri: `${apiURL}/photos/${userData.profile_photo}` });
-        }
-      } 
-      catch (error) 
-      {
-        Alert.alert('Error', 'Failed to load profile data');
-      } 
-      finally 
-      {
-        setLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, []);
 
   const handleImagePick = async () => {
     try {
-      // 1. Launch image picker
+      setImageLoading(true);
+      
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -91,24 +47,41 @@ const Edit = () => {
         quality: 0.8,
       });
 
-      if (result.canceled || !result.assets?.[0]?.uri) return;
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        const uploadResult = await uploadProfilePhoto(result.assets[0].uri);
+        
+        if (uploadResult.success) {
+          const newPhotoUrl = {
+            uri: `${apiURL}/api/v1/photos/${uploadResult.data.filename}?ts=${Date.now()}`
+          };
+          
+          setUser(prev => ({
+            ...prev,
+            profile_photo: newPhotoUrl
+          }));
 
-      // 2. Create a permanent copy of the file
-      const permanentPath = `${FileSystem.cacheDirectory}${result.assets[0].uri.split('/').pop()}`;
-      
-      await FileSystem.copyAsync({
-        from: result.assets[0].uri,
-        to: permanentPath,
-      });
+          const userJson = await AsyncStorage.getItem('user');
 
-      // 3. Now upload from the permanent location
-      const uploadResult = await uploadProfilePhoto(permanentPath);
-      
-      if (uploadResult.success) {
-        // Update UI and local storage
+          if (userJson) {
+            const userData = JSON.parse(userJson);
+            userData.profile_photo = uploadResult.data.filename;
+            await AsyncStorage.setItem('user', JSON.stringify(userData));
+          }
+
+          Alert.alert('Success', 'Profile photo updated!');
+        } else {
+          Alert.alert('Error', uploadResult.error || 'Failed to upload photo');
+        }
       }
-    } catch (error) {
-      console.error('Error:', error);
+    } 
+    catch (error) 
+    {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Failed to select image');
+    } 
+    finally 
+    {
+      setImageLoading(false);
     }
   };
 
@@ -119,40 +92,82 @@ const Edit = () => {
       if (!userId) throw new Error('User ID not available');
       
       const result = await updateUserProfile(userId, {
-        firstname: formData.firstname,
-        lastname: formData.lastname,
-        location: formData.location
+        firstname: user.firstname,
+        lastname: user.lastname,
+        location: user.location
       });
       
       if (result.success) {
         const userJson = await AsyncStorage.getItem('user');
-        
         if (userJson) {
           const updatedUser = {
             ...JSON.parse(userJson),
-            firstname: formData.firstname,
-            lastname: formData.lastname,
-            location: formData.location
+            firstname: user.firstname,
+            lastname: user.lastname,
+            location: user.location,
+            profile_photo: user.profile_photo?.uri 
+              ? user.profile_photo.uri.split('/').pop()?.split('?')[0]
+              : null
           };
           await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
         }
+        
         Alert.alert('Success', 'Profile updated successfully');
         router.back();
-      } 
-      else 
-      {
+      } else {
         Alert.alert('Error', result.error || 'Failed to update profile');
       }
-    } 
-    catch (error) 
-    {
+    } catch (error: any) {
       Alert.alert('Error', error.message || 'An unexpected error occurred');
-    } 
-    finally 
-    {
+    } finally {
       setLoading(false);
     }
   };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchUserData = async () => {
+        setLoading(true);
+        try {
+          const userJson = await AsyncStorage.getItem('user');
+          if (!userJson) throw new Error('No user data found');
+          
+          const storedUser = JSON.parse(userJson);
+          if (!storedUser?.id) throw new Error('User ID not found');
+
+          setUserId(storedUser.id);
+          
+          const userData = await getUserProfile(storedUser.id);
+          
+          console.log('User data from API:', {
+            ...userData,
+            profile_photo: userData.profile_photo 
+              ? `${apiURL}/api/v1/photos/${userData.profile_photo}` 
+              : null
+          });
+
+          const photoUrl = userData.profile_photo 
+            ? { uri: `${apiURL}/api/v1/photos/${userData.profile_photo}?ts=${Date.now()}` }
+            : null;
+
+          setUser(prev => ({
+            ...prev,
+            ...userData,
+            profile_photo: photoUrl
+          }));
+
+          setProfileImage(photoUrl ? { uri: photoUrl.uri } : null);
+
+        } catch (error) {
+          console.error('Edit load error:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchUserData();
+    }, [])
+  );
 
   return (
     <>
@@ -185,21 +200,24 @@ const Edit = () => {
 
           <View style={styles.body}>
             <View style={styles.bodycontent}>
-              <TouchableOpacity onPress={handleImagePick} disabled={imageLoading}>
+              <TouchableOpacity 
+                onPress={handleImagePick} 
+                disabled={imageLoading}
+              >
                 <View style={styles.bodyimage}>
-                  {profileImage ? (
-                    <Image 
-                      source={profileImage} 
-                      style={styles.lrgimage} 
-                      resizeMode="cover" 
-                    />
-                  ) : (
-                    <Image 
-                      source={images.profile} 
-                      style={styles.lrgimage} 
-                      resizeMode="cover" 
-                    />
-                  )}
+                  <Image 
+                    source={user.profile_photo ? { uri: user.profile_photo.uri } : images.profile}
+                    style={styles.lrgimage}
+                    onError={(e) => {
+                      console.log("Image load failed - Details:", {
+                        attemptedURI: user.profile_photo?.uri,
+                        error: e.nativeEvent.error
+                      });
+                      setUser(prev => ({...prev, profile_photo: null}));
+                    }}
+                    onLoad={() => console.log("Image loaded successfully!")}
+                    resizeMode="cover"
+                  />
 
                   {imageLoading && (
                     <View style={styles.imageoverlay}>
@@ -232,8 +250,8 @@ const Edit = () => {
                   style={styles.input}
                   placeholder="Enter first name"
                   placeholderTextColor={colors.grey}
-                  value={formData.firstname}
-                  onChangeText={(text) => setFormData({...formData, firstname: text})}
+                  value={user.firstname}
+                  onChangeText={(text) => setUser({...user, firstname: text})}
                 />
               </View>
             </View>
@@ -246,8 +264,8 @@ const Edit = () => {
                   style={styles.input}
                   placeholder="Enter last name"
                   placeholderTextColor={colors.grey}
-                  value={formData.lastname}
-                  onChangeText={(text) => setFormData({...formData, lastname: text})}
+                  value={user.lastname}
+                  onChangeText={(text) => setUser({...user, lastname: text})}
                 />
               </View>
             </View>
@@ -260,8 +278,8 @@ const Edit = () => {
                   style={styles.input}
                   placeholder="Enter username"
                   placeholderTextColor={colors.grey}
-                  value={formData.username}
-                  onChangeText={(text) => setFormData({...formData, username: text})}
+                  value={user.username}
+                  onChangeText={(text) => setUser({...user, username: text})}
                   editable={false}
                 />
               </View>
@@ -275,8 +293,8 @@ const Edit = () => {
                   style={styles.input}
                   placeholder="Enter location"
                   placeholderTextColor={colors.grey}
-                  value={formData.location}
-                  onChangeText={(text) => setFormData({...formData, location: text})}
+                  value={user.location}
+                  onChangeText={(text) => setUser({...user, location: text})}
                 />
               </View>
             </View>

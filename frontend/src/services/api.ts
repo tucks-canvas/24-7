@@ -5,9 +5,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 
-export const apiURL = 'http://10.22.228.97:5000'; // Remember to change if at different address or location
+export const apiURL = 'http://10.10.14.136:5000'; // Remember to change if at different address or location
 
-const API_BASE_URL = 'http://10.22.228.97:5000/api/v1'; // Remember to change if at different address or location
+const API_BASE_URL = 'http://10.10.14.136:5000/api/v1'; // Remember to change if at different address or location
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -34,6 +34,11 @@ const refreshAuthToken = async () => {
     await SecureStore.deleteItemAsync('refresh_token');
     throw error;
   }
+};
+
+// Update photo URL generation
+export const getPhotoUrl = (filename: string) => {
+  return `${apiURL}/api/v1/photos/${filename}`;
 };
 
 // Declare registerUser
@@ -189,7 +194,14 @@ export const getUserProfile = async (userId?: number) => {
         'Accept': 'application/json'
       }
     });
-    return response.data;
+    
+    // Ensure profile_photo is properly formatted
+    const data = response.data;
+    if (data.profile_photo && !data.profile_photo.startsWith('http')) {
+      data.profile_photo_url = `${apiURL}/api/v1/photos/${data.profile_photo}`;
+    }
+    
+    return data;
   } catch (error: any) {
     console.error('Error fetching profile:', {
       status: error.response?.status,
@@ -233,27 +245,26 @@ export const updateUserProfile = async (
 // Declare profile photo by user ID
 export const uploadProfilePhoto = async (imageUri: string) => {
   try {
-    // Get fresh token
     const token = await SecureStore.getItemAsync('auth_token');
     if (!token) throw new Error('Authentication token not found');
 
-    // Create FormData with proper file info
-    const filename = imageUri.split('/').pop() || `photo_${Date.now()}.jpg`;
-    const fileType = filename.split('.').pop()?.toLowerCase() || 'jpg';
-    
+    let uri = imageUri;
+    if (Platform.OS === 'android' && uri.startsWith('file://')) {
+      uri = uri.replace('file://', '');
+    }
+
+    const fileInfo = await FileSystem.getInfoAsync(uri);
+    if (!fileInfo.exists) throw new Error('File does not exist');
+
+    const filename = `user_${Date.now()}.${uri.split('.').pop() || 'jpg'}`;
     const formData = new FormData();
     formData.append('file', {
       uri: imageUri,
       name: filename,
-      type: `image/${fileType}`,
+      type: `image/${filename.split('.').pop() || 'jpg'}`,
     } as any);
 
-    console.log('Uploading:', { 
-      uri: imageUri,
-      name: filename,
-      type: `image/${fileType}`
-    });
-
+    console.log('Uploading to:', `${API_BASE_URL}/photos`);
     const response = await axios.post(`${API_BASE_URL}/photos`, formData, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -262,13 +273,25 @@ export const uploadProfilePhoto = async (imageUri: string) => {
       transformRequest: () => formData,
     });
 
+    console.log('Upload response:', {
+      status: response.status,
+      data: response.data,
+      headers: response.headers
+    });
+
+    if (!response.data.url) {
+      // If backend doesn't return full URL, construct it
+      response.data.url = `${API_BASE_URL}/photos/${response.data.filename}`;
+    }
+
     return {
       success: true,
       data: response.data
     };
   } catch (error: any) {
-    console.error('Upload failed:', {
-      error: error.response?.data || error.message,
+    console.error('Upload error details:', {
+      message: error.message,
+      response: error.response?.data,
       config: error.config
     });
     return {

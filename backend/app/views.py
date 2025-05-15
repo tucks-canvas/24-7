@@ -374,7 +374,6 @@ def allowed_file(filename):
 @login_required
 def upload_photo():
     try:
-        # Verify file exists in request
         if 'file' not in request.files:
             return jsonify({"error": "No file part"}), 400
             
@@ -382,7 +381,6 @@ def upload_photo():
         if file.filename == '':
             return jsonify({"error": "No selected file"}), 400
         
-        # Verify file type using the config
         if not allowed_file(file.filename):
             allowed = ', '.join(current_app.config['ALLOWED_EXTENSIONS'])
             return jsonify({
@@ -390,60 +388,101 @@ def upload_photo():
                 "allowed_extensions": allowed
             }), 400
             
-        # Create upload directory if needed
         os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
         
-        # Generate secure filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         ext = file.filename.rsplit('.', 1)[1].lower()
         filename = secure_filename(f"user_{current_user.id}_{timestamp}.{ext}")
         filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
         
-        # Save the file
         file.save(filepath)
-        print(f"File saved to: {filepath}")  # Debug print
         
-        # Remove old profile photo if exists
         if current_user.profile_photo:
             old_file = os.path.join(current_app.config['UPLOAD_FOLDER'], current_user.profile_photo)
             if os.path.exists(old_file):
                 os.remove(old_file)
         
-        # Update user record
         current_user.profile_photo = filename
         db.session.commit()
         
+        # Return URL with consistent /api/v1/photos/ prefix
+        photo_url = url_for('get_photo', filename=filename, _external=True)
         return jsonify({
             "message": "Photo uploaded successfully",
             "filename": filename,
-            "url": url_for('get_photo', filename=filename, _external=True)
+            "url": photo_url
         }), 200
         
     except Exception as e:
-        current_app.logger.error(f"Upload failed: {str(e)}")
         db.session.rollback()
         return jsonify({
             "error": "Upload failed",
             "details": str(e)
         }), 500
-
+        
 #
 @app.route('/api/v1/photos/<filename>', methods=['GET'])
 def get_photo(filename):
-    if not os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], filename)):
-        abort(404)
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    try:
+        clean_filename = secure_filename(filename.split('?')[0].split('#')[0])
+        current_app.logger.info(f"Attempting to serve photo: {clean_filename}")
+        
+        if not clean_filename:
+            current_app.logger.error("Empty filename received")
+            abort(400, description="Invalid filename")
+            
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        filepath = os.path.join(upload_folder, clean_filename)
+        current_app.logger.info(f"Looking for file at: {filepath}")
+        
+        if not os.path.exists(filepath):
+            current_app.logger.error(f"File not found at: {filepath}")
+            current_app.logger.info(f"Upload folder contents: {os.listdir(upload_folder)}")
+            abort(404, description="File not found")
+            
+        current_app.logger.info(f"Serving file: {filepath}")
+        return send_from_directory(
+            upload_folder,
+            clean_filename,
+            conditional=True
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error serving {filename}: {str(e)}", exc_info=True)
+        abort(500, description="Error serving file")
+
 
 ##
 # Functions for error, and request handling.
 ##
 
-#
+# Debug function for config.py
 @app.route('/debug/config')
 def debug_config():
     return jsonify({
         "UPLOAD_FOLDER": current_app.config['UPLOAD_FOLDER'],
         "ALLOWED_EXTENSIONS": list(current_app.config['ALLOWED_EXTENSIONS'])
+    })
+
+# Debug function for file uploads
+@app.route('/debug/uploads')
+def debug_uploads():
+    uploads_dir = current_app.config['UPLOAD_FOLDER']
+    if not os.path.exists(uploads_dir):
+        return jsonify({"error": f"Upload directory {uploads_dir} does not exist"}), 500
+    
+    files = []
+    for f in os.listdir(uploads_dir):
+        filepath = os.path.join(uploads_dir, f)
+        files.append({
+            "name": f,
+            "size": os.path.getsize(filepath),
+            "modified": datetime.fromtimestamp(os.path.getmtime(filepath)).isoformat()
+        })
+    
+    return jsonify({
+        "upload_folder": uploads_dir,
+        "files": files,
+        "absolute_path": os.path.abspath(uploads_dir)
     })
 
 # Error function for form.

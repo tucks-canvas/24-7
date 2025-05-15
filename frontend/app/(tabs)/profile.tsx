@@ -26,51 +26,8 @@ const Profile = () => {
     firstname: '',
     lastname: '',
     location: '',
-    profile_photo: images.profile
+    profile_photo: null
   });
-
-  useFocusEffect(
-    React.useCallback(() => {
-      const loadProfile = async () => {
-        setLoading(true);
-        try {
-          // First get the stored user data
-          const userJson = await AsyncStorage.getItem('user');
-          if (!userJson) {
-            throw new Error('No user data found');
-          }
-          
-          const storedUser = JSON.parse(userJson);
-          if (!storedUser?.id) {
-            throw new Error('User ID not found in stored data');
-          }
-          
-          setUserId(storedUser.id);
-          
-          // Then fetch the profile
-          const profile = await getUserProfile(storedUser.id);
-          
-          setUser({
-            username: profile.username || storedUser.username || 'Anonymous',
-            firstname: profile.firstname || storedUser.firstname || '',
-            lastname: profile.lastname || storedUser.lastname || '',
-            location: profile.location || storedUser.location || 'No location set',
-            profile_photo: profile.profile_photo 
-              ? { uri: `${apiURL}/photos/${profile.profile_photo}` } 
-              : images.profile
-          });
-          
-        } catch (error) {
-          console.error('Profile load error:', error);
-          Alert.alert('Error', error.message || 'Failed to load profile');
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      loadProfile();
-    }, []) // Empty dependency array means this runs only on focus
-  );
 
   const handleLogout = async () => {
     setLoading(true);
@@ -92,6 +49,43 @@ const Profile = () => {
   const handleEdit = async () => {
     router.push('/edit');
   };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadProfile = async () => {
+        setLoading(true);
+        try {
+          const userJson = await AsyncStorage.getItem('user');
+          if (!userJson) throw new Error('No user data found');
+          
+          const storedUser = JSON.parse(userJson);
+          if (!storedUser?.id) throw new Error('User ID not found');
+          
+          const profile = await getUserProfile(storedUser.id);
+          
+          // Handle photo URL with cache buster
+          let photoUrl = null;
+          if (profile.profile_photo) {
+            photoUrl = {
+              uri: `${apiURL}/api/v1/photos/${profile.profile_photo}?ts=${Date.now()}`
+            };
+          }
+          
+          setUser(prev => ({
+            ...prev,
+            ...profile,
+            profile_photo: photoUrl
+          }));
+          
+        } catch (error) {
+          console.error('Profile load error:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadProfile();
+    }, [])
+  );
 
   const menu = [
     {
@@ -155,7 +149,16 @@ const Profile = () => {
           <View style={styles.body}>
             <View style={styles.bodycontent}>
               <View style={styles.bodyimage}>
-                <Image source={images.profile} style={styles.lrgimage} resizeMode="cover" />
+                <Image 
+                  source={user.profile_photo || images.profile}
+                  style={styles.lrgimage}
+                  onError={(e) => {
+                    console.log("Failed to load profile photo:", e.nativeEvent.error);
+                    // Fallback to default image
+                    setUser(prev => ({...prev, profile_photo: null}));
+                  }}
+                  resizeMode="cover"
+                />
               </View>
 
               <TouchableOpacity 
