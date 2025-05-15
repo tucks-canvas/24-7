@@ -157,17 +157,20 @@ export const verifyResetCode = async (email: string, code: string) => {
 export const updatePassword = async (token: string, newPassword: string) => {
   try {
     const response = await api.post('/auth/reset-password', {
-      token,
+      token: token,
       new_password: newPassword
     });
+    
     return {
       success: true,
-      message: response.data.message
+      message: response.data.message,
+      data: response.data
     };
   } catch (error: any) {
     return {
       success: false,
-      error: error.response?.data?.error || 'Password update failed'
+      error: error.response?.data?.error || 'Password update failed',
+      details: error.response?.data
     };
   }
 };
@@ -280,7 +283,6 @@ export const uploadProfilePhoto = async (imageUri: string) => {
     });
 
     if (!response.data.url) {
-      // If backend doesn't return full URL, construct it
       response.data.url = `${API_BASE_URL}/photos/${response.data.filename}`;
     }
 

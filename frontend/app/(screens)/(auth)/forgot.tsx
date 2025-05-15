@@ -85,6 +85,7 @@ const Forgot = () => {
             <TouchableOpacity 
               onPress={handleSubmit}
               disabled={loading}
+              style={styles.button}
             >
               {loading ? (
                 <ActivityIndicator color="white" />

@@ -10,6 +10,7 @@ This file creates your application.
 import os
 import jwt
 import secrets
+import random
 
 from datetime import datetime, timedelta
 from functools import wraps
@@ -21,7 +22,7 @@ from flask import current_app, render_template, request, jsonify, send_file, ses
 from flask_login import login_user, logout_user, current_user, login_required
 
 from werkzeug.utils import secure_filename
-from werkzeug.security import check_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
@@ -31,7 +32,7 @@ from app.models import User
 
 from flask_wtf.csrf import generate_csrf
 
-from itsdangerous import URLSafeTimedSerializer
+from itsdangerous import URLSafeTimedSerializer as Serializer
 from flask_mail import Message
 from app import mail
 
@@ -141,7 +142,7 @@ def login():
         
         if user and check_password_hash(user.password, password):
             login_user(user)
-            jwt_token = generate_token(user.id)
+            jwt_token = generate_reset_token(user.id)
             
             return jsonify({
                 "message": "User successfully logged in.",
@@ -186,9 +187,12 @@ def logout():
 ##
 
 #
-@app.route('/auth/request-password-reset', methods=['POST'])
+@app.route('/api/v1/auth/request-password-reset', methods=['POST'])
 def request_reset():
     email = request.json.get('email')
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
     user = User.query.filter_by(email=email).first()
     
     if user:
@@ -199,53 +203,103 @@ def request_reset():
         user.reset_code_expiration = expiration
         db.session.commit()
         
-        msg = Message(
-            "Your Password Reset Code",
-            recipients=[email],
-            body=f"Your verification code is: {reset_code}"
-        )
-        mail.send(msg)
+        try:
+            msg = Message(
+                "Your Password Reset Code",
+                sender="noreply@yourdomain.com",
+                recipients=[email],
+                body=f"Your password reset code is: {reset_code}\n\nThis code will expire in 15 minutes."
+            )
+            mail.send(msg)
+            return jsonify({"message": "If an account exists with this email, a reset code has been sent"}), 200
+        except Exception as e:
+            app.logger.error(f"Failed to send email: {str(e)}")
+            return jsonify({"error": "Failed to send reset code"}), 500
     
-    return jsonify({"message": "If email exists, code was sent"}), 200
+
+    return jsonify({"message": "If an account exists with this email, a reset code has been sent"}), 200
 
 #
-@app.route('/auth/verify-reset-code', methods=['POST'])
+@app.route('/api/v1/auth/verify-reset-code', methods=['POST'])
 def verify_code():
-    email = request.json.get('email')
-    token = request.json.get('token')
-    user = User.query.filter_by(email=email).first()
-    
-    if not user or user.reset_code != token:
-        return jsonify({"error": "Invalid code"}), 400
-        
-    if user.reset_code_expiration < datetime.utcnow():
-        return jsonify({"error": "Code expired"}), 400
-        
-    s = Serializer(current_app.config['SECRET_KEY'], expires_in=3600)
-    token = s.dumps({'user_id': user.id}).decode('utf-8')
-    
-    return jsonify({"token": token}), 200
-
-#
-@app.route('/auth/reset-password', methods=['POST'])
-def reset_password():
-    token = request.json.get('token')
-    new_password = request.json.get('new_password')
-    
     try:
+        email = request.json.get('email')
+        token = request.json.get('token')  # The 4-digit code
+        
+        if not email or not token:
+            return jsonify({"error": "Email and token are required"}), 400
+
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+            
+        if user.reset_code != token:
+            return jsonify({"error": "Invalid code"}), 400
+            
+        if user.reset_code_expiration < datetime.utcnow():
+            return jsonify({"error": "Code expired"}), 400
+            
+        # Generate reset token with 10 minute expiration
+        expiration = datetime.utcnow() + timedelta(minutes=10)
+        payload = {
+            'user_id': user.id,
+            'exp': expiration.timestamp()  # Using timestamp
+        }
+        
         s = Serializer(current_app.config['SECRET_KEY'])
-        data = s.loads(token)
-    except:
-        return jsonify({"error": "Invalid token"}), 400
+        reset_token = s.dumps(payload)
+        
+        return jsonify({
+            "success": True,
+            "token": reset_token,
+            "expires_at": expiration.isoformat()
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Verify code error: {str(e)}")
+        return jsonify({"error": "Verification failed"}), 500
     
-    user = User.query.get(data['user_id'])
-    if user:
+#
+@app.route('/api/v1/auth/reset-password', methods=['POST'])
+def reset_password_with_token():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        token = data.get('token')
+        new_password = data.get('new_password')
+        
+        if not token or not new_password:
+            return jsonify({"error": "Token and new password are required"}), 400
+
+        if len(new_password) < 8:
+            return jsonify({"error": "Password must be at least 8 characters"}), 400
+        
+        s = Serializer(current_app.config['SECRET_KEY'])
+        try:
+            payload = s.loads(token)
+        except:
+            return jsonify({"error": "Invalid or expired token"}), 400
+            
+        # Check expiration
+        if 'exp' not in payload or datetime.utcnow().timestamp() > payload['exp']:
+            return jsonify({"error": "Token expired"}), 400
+            
+        user = User.query.get(payload.get('user_id'))
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+            
         user.password = generate_password_hash(new_password)
         user.reset_code = None
+        user.reset_code_expiration = None
         db.session.commit()
-        return jsonify({"message": "Password updated"}), 200
-    
-    return jsonify({"error": "User not found"}), 404
+        
+        return jsonify({"success": True, "message": "Password updated successfully"}), 200
+        
+    except Exception as e:
+        app.logger.error(f"Password reset error: {str(e)}")
+        return jsonify({"error": "Password reset failed"}), 500
 
 
 ##
@@ -323,15 +377,23 @@ def get_csrf():
 
 
 # API route for generatiing JWT token
-def generate_token(uid):
-    timestamp = datetime.utcnow()
-    payload = {
-        "subject": uid,
-        "iat": timestamp,
-        "exp": timestamp + timedelta(minutes=60)
-    }
-    token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
-    return token
+def generate_reset_token(user_id):
+    """Generate a JWT token for password reset"""
+    try:
+        payload = {
+            'user_id': user_id,
+            'exp': datetime.utcnow() + timedelta(minutes=30),  # 30 minute expiration
+            'iat': datetime.utcnow(),
+            'purpose': 'password_reset'  # Specific purpose for this token
+        }
+        return jwt.encode(
+            payload,
+            app.config['SECRET_KEY'],
+            algorithm='HS256'
+        )
+    except Exception as e:
+        app.logger.error(f"Token generation error: {str(e)}")
+        raise
 
 #
 @app.route('/api/v1/auth/refresh', methods=['POST'])

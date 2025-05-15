@@ -7,13 +7,15 @@ class User(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, unique=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
-    password = db.Column(db.String(128), nullable=False)
+    password = db.Column(db.String(500), nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
     firstname = db.Column(db.String(64), nullable=True)
     lastname = db.Column(db.String(64), nullable=True)
     location = db.Column(db.String(255), nullable=True)
     profile_photo = db.Column(db.String(255), nullable=True)
     joined_on = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    reset_code = db.Column(db.String(4), nullable=True)
+    reset_code_expiration = db.Column(db.DateTime, nullable=True)
     
     def __init__(self, username, password, email, firstname=None, lastname=None, location=None):
         self.username = username

@@ -1,13 +1,14 @@
 # 24-7 - Autocare
 # Description:
 Autocare is a full-service automotive platform that empowers users to access a wide range of vehicle services, including parts purchasing, vehicle rentals, mechanical repairs (battery, tires, oil changes), detailing services, and roadside recovery. 
+
 The application delivers an optimised user experience through intuitive navigation, secure authentication flows, intelligent service booking systems, advanced search filtering, comprehensive profile management, and location-aware workshop discovery.
 
 # Demo: 
 Insert demo video here.
 
 # Screens: 
-a. Authentication
+1. Authentication:
 	i. Sign (sign.tsx)
 	   Purpose: Handles both user login and registration.
 
@@ -46,7 +47,7 @@ a. Authentication
 		b. Navigation to the "Code" screen upon successful submission.
 		c. Error handling and loading states.
 
-b. Onboarding Screens:
+2. Onboarding Screens:
 	i. Loading (loading.tsx)
 	   Purpose: Displays a splash screen while the app initializes or authenticates the user.
 
@@ -58,7 +59,7 @@ b. Onboarding Screens:
 		b. Pagination of the three-slide carousel.
 		c. Navigation through three-slide carousel
 
-c. Services Screens:
+3. Services:
 	i. Service (service.tsx)
 		Purpose: Displays detailed information about a selected service.
 
@@ -69,7 +70,7 @@ c. Services Screens:
 		d. Emergency vehicle information section (location, model).
 		e. "Book Now" button to proceed to booking.
 
-d. System Screens:
+4. System:
 	i. Edit (edit.tsx)
 	   Purpose: Allows users to edit their profile information.
 
@@ -79,7 +80,7 @@ d. System Screens:
 	   c. Save button to update profile data.
 	   d. Error handling and loading states for photo upload and data submission.
 
-e. Tab Screens:
+5. Tabs:
 	i. Home (home.tsx)
 	   Purpose: Main screen displaying services, rentals, and selling options.
 

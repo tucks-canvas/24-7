@@ -42,14 +42,22 @@ const New = () => {
     }
 
     setLoading(true);
-    const result = await updatePassword(token as string, newPasswordData.password);
-    setLoading(false);
-
-    if (result.success) {
-      Alert.alert('Success', 'Password updated successfully!');
-      router.replace('/sign');
-    } else {
-      Alert.alert('Error', result.error);
+    try {
+      const result = await updatePassword(
+        token as string, 
+        newPasswordData.password
+      );
+      
+      if (result.success) {
+        Alert.alert('Success', result.message || 'Password updated successfully!');
+        router.replace('/sign');
+      } else {
+        Alert.alert('Error', result.error || 'Password update failed');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
